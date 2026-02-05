@@ -4,10 +4,12 @@ all: ansipixels
 format:
 	clang-format -i *.c *.h
 
-CFLAGS = -g -Wall -Wextra -pedantic -Werror -fsanitize=address -DDEBUG=1
+DEBUG ?= 1
+SAN ?= -fsanitize=address
+CFLAGS = -g -Wall -Wextra -pedantic -Werror $(SAN) -DDEBUG=$(DEBUG)
 
-ansipixels: main.o buf.o str.o Makefile
-	$(CC) $(CFLAGS) -o $@ main.o buf.o str.o
+ansipixels: buf.o str.o raw.o main.o
+	$(CC) $(CFLAGS) -o $@ $^
 	./$@
 
 clean:
