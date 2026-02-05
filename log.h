@@ -13,9 +13,9 @@
 #endif
 
 #if DEBUG
-#define LOG_DEBUG(fmt, ...)                                      \
-  do {                                                          \
-    fprintf(stderr, GREEN fmt END_LOG, ##__VA_ARGS__);           \
+#define LOG_DEBUG(fmt, ...)                                                    \
+  do {                                                                         \
+    fprintf(stderr, GREEN fmt END_LOG, ##__VA_ARGS__);                         \
   } while (0)
 #else
 #define LOG_DEBUG(fmt, ...)                                                    \
