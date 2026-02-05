@@ -5,7 +5,7 @@
 
 buffer new_buf(size_t size) {
   return (buffer){calloc(1, size), 0, size
-#ifdef DEBUG
+#if DEBUG
                   ,
                   1
 #endif
@@ -41,7 +41,7 @@ void append_data(buffer *dest, const char *data, size_t size) {
                   dest->cap * 2); // double capacity to reduce future reallocs
     dest->data = realloc(dest->data, new_cap);
     dest->cap = new_cap;
-#ifdef DEBUG
+#if DEBUG
     dest->allocs++;
 #endif
   }
@@ -57,7 +57,7 @@ void append_byte(buffer *dest, char byte) { append_data(dest, &byte, 1); }
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
   return (buffer){b.data + start, end - start, 0
-#ifdef DEBUG
+#if DEBUG
                   ,
                   0
 #endif
@@ -116,7 +116,7 @@ void debug_print_buf(buffer b) {
   fprintf(stderr,
           "buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d }\n",
           (void *)b.data, quoted.data, b.size, b.cap,
-#ifdef DEBUG
+#if DEBUG
           b.allocs, quoted.allocs
 #else
           -1, -1

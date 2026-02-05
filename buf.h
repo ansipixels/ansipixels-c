@@ -6,7 +6,7 @@ typedef struct buf {
   char *data;
   size_t size;
   size_t cap;
-#ifdef DEBUG
+#if DEBUG
   int allocs; // for debugging reallocs
 #endif
 } buffer;
