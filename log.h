@@ -7,24 +7,19 @@
 #define RESET "\033[0m"
 #define END_LOG RESET "\n"
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
-
 #if DEBUG
-#define LOG_DEBUG(fmt, ...)                                                    \
-  do {                                                                         \
-    fprintf(stderr, GREEN fmt END_LOG, ##__VA_ARGS__);                         \
-  } while (0)
+void log_debug(const char *file, int line, const char *fmt, ...);
+#define LOG_DEBUG(...) log_debug(__FILE__, __LINE__, __VA_ARGS__)
 #else
-#define LOG_DEBUG(fmt, ...)                                                    \
-  while (0) {                                                                  \
-    fprintf(stderr, fmt, __VA_ARGS__);                                         \
-  }
+#define LOG_DEBUG(...)                                                         \
+  do {                                                                         \
+    if (0)                                                                     \
+      printf(__VA_ARGS__);                                                     \
+  } while (0)
 #endif
 
 #define LOG_ERROR(fmt, ...)                                                    \
   do {                                                                         \
-    fprintf(stderr, RED fmt END_LOG, __VA_ARGS__);                             \
+    fprintf(stderr, RED "%s:%d: ", __FILE__, __LINE__);                        \
+    fprintf(stderr, fmt END_LOG, __VA_ARGS__);                                 \
   } while (0)

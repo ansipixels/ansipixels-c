@@ -8,7 +8,7 @@ DEBUG ?= 1
 SAN ?= -fsanitize=address
 CFLAGS = -g -Wall -Wextra -pedantic -Werror $(SAN) -DDEBUG=$(DEBUG)
 
-ansipixels: buf.o str.o raw.o main.o
+ansipixels: buf.o str.o raw.o log.o main.o
 	$(CC) $(CFLAGS) -o $@ $^
 	./$@
 
