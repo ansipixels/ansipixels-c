@@ -22,7 +22,7 @@ int main(void) {
 ```
 and
 ```sh
-gcc -I. -Wall -Wextra prog.c  -L. -lansipixels
+gcc -I./include -Wall -Wextra prog.c  -L. -lansipixels
 ./a.out
 Terminal in raw mode - 101 x 35
 ```

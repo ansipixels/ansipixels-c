@@ -1,7 +1,10 @@
 #!/bin/bash
 # Script to insert or update header comments in all .c and .h files
+# (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
+# No warranty implied or expressly granted. Licensed under Apache 2.0 (see LICENSE).
+# Ran from parent directory via `make update-headers` target.
 
-HEADER_FILE="header.txt"
+HEADER_FILE="./scripts/header.txt"
 
 if [[ ! -f "$HEADER_FILE" ]]; then
     echo "Error: $HEADER_FILE not found"
@@ -62,7 +65,7 @@ update_header() {
 echo "Updating headers in .c and .h files..."
 echo
 
-for file in *.c *.h; do
+for file in */*.c */*.h; do
     if [[ -f "$file" ]]; then
         update_header "$file"
     fi
