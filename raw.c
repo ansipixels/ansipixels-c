@@ -67,9 +67,6 @@ int term_raw(void) {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
     return 2;
   }
-
-  // Register restoration function to run on exit
-  atexit(term_restore);
   return 0;
 }
 

@@ -1,12 +1,9 @@
 #include "ansipixels.h"
-#include <stdio.h>
-#include <string.h>
-#include <sys/errno.h>
 
 int main(void) {
-  if (term_raw() != 0) {
-    LOG_ERROR("Failed to enter raw mode: %s", strerror(errno));
-    return 1;
+  ap_t ap = ap_open();
+  if (!ap) {
+    return 1; // error already logged in ap_open
   }
   buffer b = {0};
   debug_print_buf(b); // check 0 init is fine
@@ -26,7 +23,7 @@ int main(void) {
 
   // Read from stdin in paste mode until 'Ctrl-C' or 'Ctrl-D' is pressed;
   // input is logged via the buffer debug print but not echoed to stdout
-  PASTE_MODE_ON();
+  ap_paste_on(ap);
   write_str(STDOUT_FILENO,
             STR("Type something (press 'Ctrl-C' or 'Ctrl-D' to quit):\n"));
   b = new_buf(4096);
