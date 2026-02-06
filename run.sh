@@ -1,6 +1,9 @@
 #! /bin/sh
 # A bit annoying macos matrix of clang vs gcc and debug vs release vs sanitizers.
 # This just runs all the combinations.
+#
+# (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
+# No warranty implied or expressly granted. Licensed under MIT (see LICENSE).
 set -ex
 make clean all
 make clean all NO_COLOR=1

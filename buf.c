@@ -1,3 +1,12 @@
+/**
+ * ansipixels-c:
+ * A C library for rendering fast Terminal User Interfaces (TUIs)
+ * using ANSI codes. Inspired by the Go library
+ * https://pkg.go.dev/fortio.org/terminal/ansipixels
+ *
+ * (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
+ * No warranty implied or expressly granted. Licensed under MIT (see LICENSE).
+ */
 #include "buf.h"
 #include "log.h"
 #include <stdio.h>
