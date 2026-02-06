@@ -64,8 +64,8 @@ int main(void) {
     debug_print_buf(b);
     // write_buf(STDOUT_FILENO, b);
     const char *fc;
-    static const char exit_chars[] = {'\x03', '\x04'}; // Ctrl-C and Ctrl-D
-    if ((fc = mempbrk(b.data, b.size, exit_chars, sizeof(exit_chars)))!= NULL) {
+    static const char endlist[] = {'\x03', '\x04'}; // Ctrl-C and Ctrl-D
+    if ((fc = mempbrk(b.data, b.size, endlist, sizeof(endlist))) != NULL) {
       LOG_DEBUG("Exit character %d found at offset %zd, exiting.", *fc,
                 fc - b.data);
       break; // exit on 'Ctrl-C' or 'Ctrl-D' press

@@ -12,7 +12,7 @@ all: fps ansipixels run-fps
 ci-check: clean fps ansipixels test
 
 format:
-	clang-format -i src/*.c include/*.h
+	clang-format -i demos/*.c src/*.c include/*.h
 
 DEBUG ?= 1
 SAN ?= -fsanitize=address
@@ -40,7 +40,10 @@ clean:
 update-headers:
 	./scripts/update_headers.sh
 
+local-check:
+	./scripts/run.sh
+
 # later... add unit tests
 test:
 
-.PHONY: clean all format update-headers run-fps ci-check test
+.PHONY: clean all format update-headers run-fps ci-check test local-check

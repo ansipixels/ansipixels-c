@@ -141,12 +141,14 @@ void debug_print_buf(buffer b) {
   free_buf(quoted);
 }
 
-const char *mempbrk(const char *s, size_t n, const char *accept, size_t accept_len) {
+const char *mempbrk(const char *s, size_t n, const char *accept,
+                    size_t accept_len) {
   unsigned char table[256] = {0};
-  for (size_t i = 0; i < accept_len; i++)
+  for (size_t i = 0; i < accept_len; i++) {
     table[((unsigned char *)accept)[i]] = 1;
+  }
 
-    for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     if (table[(unsigned char)s[i]]) {
       return (s + i);
     }
