@@ -28,8 +28,9 @@ int main(int argc, char **argv) {
   if (ap == NULL) {
     return 1; // error already logged
   }
-  printf("Terminal in raw mode - 'q' to exit early\n");
-  printf("it should end on its own otherwise after %d\n", num_iter);
+  dprintf(STDOUT_FILENO, "Terminal in raw mode - 'q' to exit early\n");
+  dprintf(STDOUT_FILENO, "it should end on its own otherwise after %d\n",
+          num_iter);
 
   const char *req = "\033[6n";
   int req_len = strlen(req);
@@ -57,6 +58,7 @@ int main(int argc, char **argv) {
     if (quit) {
       break;
     }
+    quoted.size = 0; // Reset quoted buffer
     quote_buf(&quoted, buf, n);
     n = snprintf(buf, sizeof(buf), "\r[%05d] Read %d bytes: %s      ", iter, n,
                  quoted.data);
@@ -66,11 +68,15 @@ int main(int argc, char **argv) {
       uint64_t current = now_ns();
       double delta_sec = (double)(current - now) / 1e9;
       double fps = (double)time_every / delta_sec;
-      printf("\t-- at %d took %.3fs -- %.1f fps\r\n", iter, delta_sec, fps);
+      dprintf(STDOUT_FILENO, "\t-- at %d took %.3fs -- %.1f fps\n", iter,
+              delta_sec, fps);
+#if DEBUG
+      debug_print_buf(quoted);
+#endif
       now = current;
     }
   }
-  printf("\nDone\n");
+  dprintf(STDOUT_FILENO, "\nDone\n");
 
   return 0;
 }
