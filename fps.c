@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
       now = current;
     }
   }
+  free_buf(quoted);
   dprintf(STDOUT_FILENO, "\nDone\n");
 
   return 0;
