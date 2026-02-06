@@ -1,3 +1,6 @@
+[![CI Checks](https://github.com/ansipixels/ansipixels-c/actions/workflows/ci.yml/badge.svg)](https://github.com/ansipixels/ansipixels-c/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/release/ansipixels/ansipixels-c.svg?style=flat)](https://github.com/ansipixels/ansipixels-c/releases/)
+
 # ansipixels-c
 
 A C library for rendering fast Terminal User Interfaces (TUIs)
