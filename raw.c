@@ -21,9 +21,7 @@ int term_raw(void) {
   if (tcgetattr(STDIN_FILENO, &original_termios) == -1) {
     return 1;
   }
-#if DEBUG
   LOG_DEBUG("Entering raw mode");
-#endif
   struct termios raw = original_termios;
 
   /*
@@ -80,9 +78,7 @@ int term_raw(void) {
 }
 
 void term_restore(void) {
-#if DEBUG
   LOG_DEBUG("Restoring normal mode");
-#endif
   // Restore the original terminal attributes on exit
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_termios);
 }
