@@ -43,6 +43,6 @@ void log_debug(const char *file, int line, const char *fmt, ...)
 
 #define LOG_INFO(fmt, ...)                                                     \
   do {                                                                         \
-    fprintf(stderr, CYAN "INF %s:%d: ", __FILE__, __LINE__);                   \
+    fprintf(stderr, GREEN "INF %s:%d: ", __FILE__, __LINE__);                   \
     fprintf(stderr, fmt END_LOG, __VA_ARGS__);                                 \
   } while (0)
