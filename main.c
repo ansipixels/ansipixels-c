@@ -24,9 +24,11 @@ int main(void) {
   write_buf(STDOUT_FILENO, b);
   free_buf(b);
 
+  // Read from stdin in paste mode until 'Ctrl-C' or 'Ctrl-D' is pressed;
+  // input is logged via the buffer debug print but not echoed to stdout
   PASTE_MODE_ON();
-  // Read stuff from stdin until 'q' is pressed, echoing it back out:
-  write_str(STDOUT_FILENO, STR("Type something (press 'Ctrl-C' or 'Ctrl-D' to quit):\n"));
+  write_str(STDOUT_FILENO,
+            STR("Type something (press 'Ctrl-C' or 'Ctrl-D' to quit):\n"));
   b = new_buf(4096);
   while (1) {
     b.size = 0; // clear buffer for reuse
@@ -41,9 +43,11 @@ int main(void) {
     debug_print_buf(b);
     // write_buf(STDOUT_FILENO, b);
     void *found;
-    if ((found = memchr(b.data, '\x03', b.size)) || (found = memchr(b.data, '\x04', b.size))) {
+    if ((found = memchr(b.data, '\x03', b.size)) ||
+        (found = memchr(b.data, '\x04', b.size))) {
       char *fc = (char *)found;
-      LOG_DEBUG("Exit character %d found at offset %zd, exiting.", *fc, fc - b.data);
+      LOG_DEBUG("Exit character %d found at offset %zd, exiting.", *fc,
+                fc - b.data);
       break; // exit on 'Ctrl-C' or 'Ctrl-D' press
     }
   }

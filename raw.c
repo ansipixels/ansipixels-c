@@ -17,23 +17,26 @@ int term_raw(void) {
   struct termios raw = original_termios;
 
   // Local flags: disable echo and canonical mode for raw input
-  raw.c_lflag &= ~(ECHO   // Don't echo typed characters back to terminal
+  raw.c_lflag &= ~(ECHO     // Don't echo typed characters back to terminal
                    | ICANON // Disable canonical mode (cooked), enable raw input
                    | ISIG); // Disable INTR, QUIT, SUSP signal generation
 
   // Input flags: disable flow control and CR/LF conversion
-  raw.c_iflag &= ~(IXON   // Disable XON/XOFF software flow control
+  raw.c_iflag &= ~(IXON      // Disable XON/XOFF software flow control
                    | ICRNL); // Don't convert carriage return to newline
 
   // Pure raw:
   // raw.c_oflag &= ~(OPOST);
 
-  // For now: Output flags: enable LF -> CR+LF conversion (requires OPOST enabled)
-  raw.c_oflag |= (OPOST | ONLCR); // OPOST enables output processing, ONLCR converts LF to CR+LF
+  // For now: Output flags: enable LF -> CR+LF conversion (requires OPOST
+  // enabled)
+  raw.c_oflag |=
+      (OPOST |
+       ONLCR); // OPOST enables output processing, ONLCR converts LF to CR+LF
 
   // Control characters: configure blocking read
-  raw.c_cc[VMIN] = 1;      // Blocking read - wait for at least 1 byte
-  raw.c_cc[VTIME] = 0;     // No timeout - block indefinitely until data arrives
+  raw.c_cc[VMIN] = 1;  // Blocking read - wait for at least 1 byte
+  raw.c_cc[VTIME] = 0; // No timeout - block indefinitely until data arrives
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
     return 2;
   }

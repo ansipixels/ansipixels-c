@@ -1,4 +1,5 @@
 #include "buf.h"
+#include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -114,7 +115,8 @@ buffer debug_quote(const char *s, size_t size) {
 void debug_print_buf(buffer b) {
   buffer quoted = debug_quote(b.data, b.size);
   fprintf(stderr,
-          "buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d }\n",
+          CYAN "INF buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d "
+               "}" END_LOG,
           (void *)b.data, quoted.data, b.size, b.cap,
 #if DEBUG
           b.allocs, quoted.allocs
