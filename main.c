@@ -37,6 +37,7 @@ int main(void) {
       LOG_ERROR("Error reading from stdin: %s", strerror(errno));
       break;
     } else if (n == 0) {
+      // Because we block for at least 1 byte, this should not happen.
       LOG_DEBUG("No input read, trying again...");
       continue; // no data, try again
     }
