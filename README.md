@@ -6,4 +6,4 @@ https://pkg.go.dev/fortio.org/terminal/ansipixels
 
 (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
 
-No warranty implied or expressly granted. Licensed under MIT (see LICENSE).
+No warranty implied or expressly granted. Licensed under Apache 2.0 (see [LICENSE](LICENSE)).
