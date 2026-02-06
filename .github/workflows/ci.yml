@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Build debug mode
-      run: make ci-check DEBUG=1 SAN=-fsanitize=address,undefined OPTS="-O0 -g"
+      run: make ci-check DEBUG=1 SAN=-fsanitize=address,undefined OPTS="-Og -g"
 
     - name: Build release mode
       run: make ci-check DEBUG=0 SAN=

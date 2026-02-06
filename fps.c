@@ -64,7 +64,9 @@ int main(int argc, char **argv) {
     quote_buf(&quoted, buf, n);
     n = snprintf(buf, sizeof(buf), "\r[%05d] Read %d bytes: %s      ", iter, n,
                  quoted.data);
-    write(STDOUT_FILENO, buf, n);
+    if (write(STDOUT_FILENO, buf, n) != n) {
+      return LOGF("Error writing to terminal");
+    }
 
     if (iter % time_every == 0) {
       uint64_t current = now_ns();
