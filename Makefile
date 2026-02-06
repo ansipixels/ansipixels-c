@@ -25,17 +25,17 @@ LIB_OBJS:=src/buf.o src/str.o src/raw.o src/log.o src/timer.o src/ansipixels.o
 libansipixels.a: $(LIB_OBJS)
 	$(AR) rcs $@ $^
 
-ansipixels: src/main.o libansipixels.a
+ansipixels: demos/main.o libansipixels.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
-fps: src/fps.o libansipixels.a
+fps: demos/fps.o libansipixels.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 run-fps: fps
 	./fps -n 10000 -t 1000
 
 clean:
-	rm -rf src/*.o src/*.dSYM ansipixels fps libansipixels.a dist/*
+	rm -rf src/*.o demos/*.o ansipixels fps libansipixels.a dist/*
 
 update-headers:
 	./scripts/update_headers.sh
