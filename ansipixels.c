@@ -54,9 +54,9 @@ ap_t ap_open(void) {
     return NULL;
   }
   ap_t ap = malloc(sizeof(struct ap));
-  ap->out = STDOUT_FILENO;
   ap->h = 0;
   ap->w = 0;
+  ap->out = STDOUT_FILENO;
   ap_update_size(ap);
   // Set up SIGWINCH handler without SA_RESTART so read() gets interrupted
   struct sigaction sa = {0};
