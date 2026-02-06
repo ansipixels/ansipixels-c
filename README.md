@@ -9,7 +9,7 @@ https://pkg.go.dev/fortio.org/terminal/ansipixels
 
 You can download demo binaries and *.h and libansipixels.a from [releases](releases/) or build from source.
 
-See [fps.c](fps.c) and [ansipixels.c](ansipixels.c) for example, or, for instance with prog.c being:
+See [demos](demos/): [fps.c](demos/fps.c) and [main.c](demos/main.c) for example, or, for instance with prog.c being:
 ```c
 #include "ansipixels.h"
 
