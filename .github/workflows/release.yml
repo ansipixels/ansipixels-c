@@ -29,6 +29,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build binaries
+        env:
+          LDFLAGS: ${{ matrix.env.LDFLAGS }}
         run: |
           make clean libansipixels.a fps ansipixels DEBUG=0 SAN=
 
