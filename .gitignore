@@ -61,3 +61,4 @@ ansipixels
 .cache
 fps
 dist/
+compile_commands.json

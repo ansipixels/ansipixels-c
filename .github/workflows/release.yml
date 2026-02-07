@@ -21,6 +21,11 @@ jobs:
             asset_name: ansipixels-linux-amd64
             env:
               LDFLAGS: -static
+          - os: ubuntu-24.04-arm
+            artifact_name: ansipixels-linux-arm64
+            asset_name: ansipixels-linux-arm64
+            env:
+              LDFLAGS: -static
           - os: macos-latest
             artifact_name: ansipixels-darwin-arm64
             asset_name: ansipixels-darwin-arm64
