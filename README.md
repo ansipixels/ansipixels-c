@@ -7,6 +7,8 @@ A C library for rendering fast Terminal User Interfaces (TUIs)
 using ANSI codes. Inspired by the Go library
 https://pkg.go.dev/fortio.org/terminal/ansipixels
 
+Currently Unix / POSIX only (with high resolution timer optimization for macOS (darwin)).
+
 You can download demo binaries and *.h and libansipixels.a from [releases](releases/) or build from source.
 
 See [demos](demos/): [fps.c](demos/fps.c) and [main.c](demos/main.c) for example, or, for instance with prog.c being:
