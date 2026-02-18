@@ -38,15 +38,19 @@ jobs:
         env:
           LDFLAGS: ${{ matrix.env.LDFLAGS }}
         run: |
-          make clean libansipixels.a fps ansipixels DEBUG=0 SAN=
+          make clean demo-binaries DEBUG=0 SAN=
 
       - name: Prepare artifacts
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           DIR_NAME="ansipixels-${VERSION}"
           mkdir -p "dist/${DIR_NAME}/include"
-          cp fps ansipixels libansipixels.a README.md LICENSE "dist/${DIR_NAME}/"
+          cp libansipixels.a README.md LICENSE "dist/${DIR_NAME}/"
           cp include/*.h "dist/${DIR_NAME}/include/"
+          # Copy all demo binaries dynamically
+          for src in demos/*.c; do
+            cp "$(basename "$src" .c)" "dist/${DIR_NAME}/"
+          done
           cd dist
           tar -czf "../${{ matrix.asset_name }}-${VERSION}.tar.gz" "${DIR_NAME}"
 
