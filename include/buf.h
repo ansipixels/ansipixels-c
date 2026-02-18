@@ -21,7 +21,7 @@ typedef struct buf {
 } buffer;
 
 buffer new_buf(size_t size);
-void free_buf(buffer b);
+void free_buf(buffer *b);
 
 ssize_t read_buf(int fd, buffer *b);
 ssize_t write_buf(int fd, buffer b);

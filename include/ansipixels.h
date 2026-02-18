@@ -14,6 +14,7 @@
 #include "raw.h"
 #include "timer.h"
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,9 +24,22 @@
 typedef struct ap {
   int out;
   int h, w;
+  buffer buf;
+  bool first_clear; // for ap_clear_screen
 } *ap_t;
 
 ap_t ap_open(void);
 
+void ap_start(ap_t ap);
+void ap_end(ap_t ap);
+
+void ap_clear_screen(ap_t ap, bool immediate);
+
 void ap_paste_on(ap_t ap);
 void ap_paste_off(ap_t ap);
+
+void ap_itoa(ap_t ap, int n);
+
+void ap_move_to(ap_t ap, int x, int y);
+
+void ap_flush(ap_t ap);

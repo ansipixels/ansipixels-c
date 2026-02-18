@@ -62,3 +62,6 @@ ansipixels
 fps
 dist/
 compile_commands.json
+.gr
+ansipixels_demo
+record
