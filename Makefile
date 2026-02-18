@@ -13,6 +13,8 @@ all: $(DEMO_BINS) run-fps
 
 ci-check: clean $(DEMO_BINS) test
 
+demo-binaries: $(DEMO_BINS)
+
 format:
 	clang-format -i demos/*.c src/*.c include/*.h
 
