@@ -42,6 +42,15 @@ int main(void) {
 
   while (1) {
     if (ap->w != last_w || ap->h != last_h) {
+      ap_start(ap);
+      ap_clear_screen(ap, false); // buffered clear to avoid flicker on resize
+      ap_move_to(ap, ap->w / 2 - 10, ap->h / 2 - 1);
+      append_str(&ap->buf, STR("Size changed: "));
+      ap_itoa(ap, ap->w);
+      append_byte(&ap->buf, 'x');
+      ap_itoa(ap, ap->h);
+      ap_move_to(ap, 0, 0);
+      ap_end(ap);
       LOG_INFO("Size changed: %dx%d", ap->w, ap->h);
       last_w = ap->w;
       last_h = ap->h;

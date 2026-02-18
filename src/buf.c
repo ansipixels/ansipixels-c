@@ -23,9 +23,13 @@ buffer new_buf(size_t size) {
 }
 
 void free_buf(buffer b) {
-  if (b.cap > 0) {
-    free(b.data);
+  if (b.cap == 0) {
+    return; // nothing to free
   }
+  free(b.data);
+  b.cap = 0;
+  b.size = 0;
+  b.data = NULL;
 }
 
 ssize_t read_buf(int fd, buffer *b) {
