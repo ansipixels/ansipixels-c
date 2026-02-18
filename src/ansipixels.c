@@ -41,7 +41,7 @@ void ap_cleanup(void) {
   ap_end(global_ap);
   ap_paste_off(global_ap);
   term_restore();
-  free_buf(global_ap->buf);
+  free_buf(&global_ap->buf);
   free(global_ap);
   global_ap = NULL;
 }
@@ -65,14 +65,18 @@ ap_t ap_open(void) {
   }
 #endif
   time_init();
+  ap_t ap = calloc(1, sizeof(struct ap));
+  if (!ap) {
+    LOG_ERROR("Failed to allocate ap struct (%s)", strerror(errno));
+    return NULL;
+  }
+  ap->out = STDOUT_FILENO;
+  ap->first_clear = true;
   if (term_raw() != 0) {
     LOG_ERROR("Failed to enter raw mode (%s)", strerror(errno));
     return NULL;
   }
-  ap_t ap = calloc(1, sizeof(struct ap));
-  ap->out = STDOUT_FILENO;
-  ap->first_clear = true; // initialize first_clear flag
-  ap_update_size(ap);
+  ap_update_size(ap); // get the initial size.
   // Set up SIGWINCH handler without SA_RESTART so read() gets interrupted
   struct sigaction sa = {0};
   sa.sa_handler = handle_winch;
@@ -96,8 +100,8 @@ void ap_paste_off(ap_t ap) {
 
 void ap_clear_screen(ap_t ap, bool immediate) {
   // First time we clear the screen, we use 2J to push old content to the
-  // scrollback buffer, otherwise we use H+0J.
-  string what = ap->first_clear ? STR("\033[H\033[0J") : STR("\033[2J\033[H");
+  // scrollback buffer, otherwise we use H+0J to not pile up on the scrollback.
+  string what = ap->first_clear ? STR("\033[2J\033[H") : STR("\033[H\033[0J");
   ap->first_clear = false;
   if (immediate) {
     write_str(ap->out, what);

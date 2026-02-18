@@ -22,14 +22,17 @@ buffer new_buf(size_t size) {
   };
 }
 
-void free_buf(buffer b) {
-  if (b.cap == 0) {
+void free_buf(buffer *b) {
+  if (b == NULL) {
     return; // nothing to free
   }
-  free(b.data);
-  b.cap = 0;
-  b.size = 0;
-  b.data = NULL;
+  if (b->cap == 0) {
+    return; // nothing to free
+  }
+  free(b->data);
+  b->cap = 0;
+  b->size = 0;
+  b->data = NULL;
 }
 
 ssize_t read_buf(int fd, buffer *b) {
@@ -142,7 +145,7 @@ void debug_print_buf(buffer b) {
           -1, -1
 #endif
   );
-  free_buf(quoted);
+  free_buf(&quoted);
 }
 
 const char *mempbrk(const char *s, size_t n, const char *accept,

@@ -41,3 +41,5 @@ void ap_paste_off(ap_t ap);
 void ap_itoa(ap_t ap, int n);
 
 void ap_move_to(ap_t ap, int x, int y);
+
+void ap_flush(ap_t ap);

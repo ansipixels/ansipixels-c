@@ -28,7 +28,7 @@ int main(void) {
   // same: debug print & output stdout
   debug_print_buf(b);
   write_buf(STDOUT_FILENO, b);
-  free_buf(b);
+  free_buf(&b);
 
   LOG_INFO("Initial size: %dx%d", ap->w, ap->h);
   // Read from stdin in paste mode until 'Ctrl-C' or 'Ctrl-D' is pressed;
@@ -80,6 +80,6 @@ int main(void) {
       break; // exit on 'Ctrl-C' or 'Ctrl-D' press
     }
   }
-  free_buf(b);
+  free_buf(&b);
   return 0;
 }
