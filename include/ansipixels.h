@@ -22,12 +22,12 @@
 #include <sys/ioctl.h>
 
 typedef struct ap {
-  int out;
-  int h, w;
-  int xpixel, ypixel;
-  buffer buf;
-  bool first_clear; // for ap_clear_screen
-  bool resized;
+    int out;
+    int h, w;
+    int xpixel, ypixel;
+    buffer buf;
+    bool first_clear; // for ap_clear_screen
+    bool resized;
 } *ap_t;
 
 ap_t ap_open(void);

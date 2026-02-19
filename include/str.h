@@ -12,8 +12,8 @@
 #include <unistd.h>
 
 typedef struct str {
-  const char *data;
-  const size_t size;
+    const char *data;
+    const size_t size;
 } string;
 
 #define STR(s) ((string){(s), sizeof(s) - 1})
