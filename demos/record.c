@@ -195,9 +195,7 @@ int main(int argc, char **argv) {
         if (!stdin_closed && ret > 0 && FD_ISSET(STDIN_FILENO, &readfds)) {
             readn = read(STDIN_FILENO, buf, sizeof(buf));
             if (readn > 0) {
-                quoted.size = 0; // reset quoted buffer for reuse
-                quote_buf(&quoted, buf, readn);
-                LOG_DEBUG("Read %zd bytes from stdin, sending to child %s", readn, quoted.data);
+                LOG_DEBUG("Read %zd bytes from stdin, sending to child %s", readn, debug_data(&quoted, buf, readn));
                 ssize_t n = write_all(fd, buf, readn); // send to PTY
                 if (n < 0) {
                     LOG_ERROR("Error writing %zd vs %zd to PTY: %s", n, readn, strerror(errno));
@@ -214,11 +212,7 @@ int main(int argc, char **argv) {
         if (ret > 0 && FD_ISSET(fd, &readfds)) {
             writen = read(fd, buf, sizeof(buf));
             if (writen > 0) {
-#if DEBUG
-                quoted.size = 0; // reset quoted buffer for reuse
-                quote_buf(&quoted, buf, writen);
-                LOG_DEBUG("Read %zd bytes from PTY, outputting to stdout %s", writen, quoted.data);
-#endif
+                LOG_DEBUG("Read %zd bytes from PTY, outputting to stdout %s", writen, debug_data(&quoted, buf, writen));
                 ssize_t n = write_all(1, buf, writen);
                 if (n < 0) {
                     LOG_ERROR("Error writing %zd vs %zd to stdout: %s", n, writen, strerror(errno));

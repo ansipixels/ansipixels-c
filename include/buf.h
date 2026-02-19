@@ -42,3 +42,12 @@ void debug_print_buf(buffer b);
 const char *mempbrk(const char *s, size_t n, const char *accept, size_t accept_len);
 
 ssize_t write_all(int fd, const char *buf, ssize_t len);
+
+void consume(buffer *b, size_t n);
+void transfer(buffer *dest, buffer *src, size_t n);
+
+// Version that keep reusing the same quote buffer to avoid unnecessary allocations
+// when debugging buffers in a loop and usable directly in a LOG_DEBUG %s.
+const char *debug_buf(buffer *shared_buf, buffer b);
+// Same with ptr + len.
+const char *debug_data(buffer *shared_buf, const char *data, size_t size);

@@ -57,9 +57,7 @@ int main(int argc, char **argv) {
         if (quit) {
             break;
         }
-        quoted.size = 0; // Reset quoted buffer
-        quote_buf(&quoted, buf, n);
-        n = snprintf(buf, sizeof(buf), "\r[%05d] Read %d bytes: %s      ", iter, n, quoted.data);
+        n = snprintf(buf, sizeof(buf), "\r[%05d] Read %d bytes: %s      ", iter, n, debug_data(&quoted, buf, n));
         if (write(STDOUT_FILENO, buf, n) != n) {
             return LOGF("Error writing to terminal");
         }

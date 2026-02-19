@@ -47,7 +47,25 @@ ssize_t read_buf(int fd, buffer *b) {
     return n;
 }
 
-ssize_t write_buf(int fd, buffer b) { return write(fd, b.data, b.size); }
+void consume(buffer *b, size_t n) {
+#if DEBUG
+    if (n > b->size) {
+        LOG_ERROR("Attempt to consume more bytes than available in buffer: %zu > %zu", n, b->size);
+        abort();
+    }
+#endif
+    if (n == b->size) {
+        b->size = 0; // consume all
+    } else {
+        memmove(b->data, b->data + n, b->size - n);
+        b->size -= n;
+    }
+}
+
+void transfer(buffer *dest, buffer *src, size_t n) {
+    append_data(dest, src->data, n);
+    consume(src, n);
+}
 
 void append_buf(buffer *dest, buffer src) { append_data(dest, src.data, src.size); }
 
@@ -99,6 +117,14 @@ buffer debug_quote(const char *s, size_t size) {
     buffer b = new_buf(size + 4);
     quote_buf(&b, s, size);
     return b;
+}
+
+const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data, b.size); }
+
+const char *debug_data(buffer *shared_buf, const char *data, size_t size) {
+    shared_buf->size = 0; // reset shared buffer for reuse
+    quote_buf(shared_buf, data, size);
+    return shared_buf->data;
 }
 
 void quote_buf(buffer *b, const char *s, size_t size) {
@@ -187,3 +213,5 @@ ssize_t write_all(int fd, const char *buf, ssize_t len) {
     }
     return total;
 }
+
+ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data, b.size); }
