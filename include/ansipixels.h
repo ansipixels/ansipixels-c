@@ -24,8 +24,10 @@
 typedef struct ap {
   int out;
   int h, w;
+  int xpixel, ypixel;
   buffer buf;
   bool first_clear; // for ap_clear_screen
+  bool resized;
 } *ap_t;
 
 ap_t ap_open(void);
@@ -43,3 +45,6 @@ void ap_itoa(ap_t ap, int n);
 void ap_move_to(ap_t ap, int x, int y);
 
 void ap_flush(ap_t ap);
+
+void ap_save_cursor(ap_t ap);
+void ap_restore_cursor(ap_t ap);

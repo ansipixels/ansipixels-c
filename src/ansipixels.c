@@ -17,14 +17,21 @@ static void ap_update_size(ap_t ap) {
     LOG_ERROR("ioctl(TIOCGWINSZ) failed: %s", strerror(errno));
     return;
   }
-  if (ws.ws_col == ap->w && ws.ws_row == ap->h) {
-    LOG_DEBUG("Sigwinch: UNchanged size: %dx%d", ap->w, ap->h);
+  if (ws.ws_col == ap->w && ws.ws_row == ap->h && ws.ws_xpixel == ap->xpixel &&
+      ws.ws_ypixel == ap->ypixel) {
+    LOG_DEBUG("Sigwinch: UNchanged size: %dx%d (%dx%d pixels)", ap->w, ap->h,
+              ap->xpixel, ap->ypixel);
     return; // no change
   }
-  LOG_DEBUG("Sigwinch: CHANGED size: %dx%d -> %dx%d", ap->w, ap->h, ws.ws_col,
-            ws.ws_row);
+  LOG_DEBUG(
+      "Sigwinch: CHANGED size: %dx%d (%dx%d pixels) -> %dx%d (%dx%d pixels)",
+      ap->w, ap->h, ap->xpixel, ap->ypixel, ws.ws_col, ws.ws_row, ws.ws_xpixel,
+      ws.ws_ypixel);
   ap->h = ws.ws_row;
   ap->w = ws.ws_col;
+  ap->xpixel = ws.ws_xpixel;
+  ap->ypixel = ws.ws_ypixel;
+  ap->resized = true;
 }
 
 static void handle_winch(int sig) {
@@ -147,4 +154,12 @@ void ap_move_to(ap_t ap, int x, int y) {
 void ap_flush(ap_t ap) {
   write_buf(ap->out, ap->buf);
   ap->buf.size = 0;
+}
+
+void ap_save_cursor(ap_t ap) {
+  append_str(&ap->buf, STR("\0337")); // save cursor position
+}
+
+void ap_restore_cursor(ap_t ap) {
+  append_str(&ap->buf, STR("\0338")); // restore cursor position
 }
