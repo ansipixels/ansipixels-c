@@ -77,6 +77,16 @@ void consume(buffer *b, size_t n) {
 }
 
 void transfer(buffer *dest, buffer *src, size_t n) {
+#if DEBUG
+    if (n > src->size) {
+        LOG_ERROR("transfer n greater than src size: %zu > %zu", n, src->size);
+        abort();
+    }
+    if (dest == src) {
+        LOG_ERROR("transfer src==dst %p", (void *)src);
+        abort();
+    }
+#endif
     append_data(dest, src->data, n);
     consume(src, n);
 }
