@@ -56,7 +56,7 @@ const char *mempbrk(const char *s, size_t n, const char *accept, size_t accept_l
 void consume(buffer *b, size_t n);
 void transfer(buffer *dest, buffer *src, size_t n);
 
-// Version that keep reusing the same quote buffer to avoid unnecessary allocations
+// Version that keeps reusing the same quote buffer to avoid unnecessary allocations
 // when debugging buffers in a loop and usable directly in a LOG_DEBUG %s.
 const char *debug_buf(buffer *shared_buf, buffer b);
 // Same with ptr + len.

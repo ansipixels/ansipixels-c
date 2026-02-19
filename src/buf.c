@@ -235,7 +235,7 @@ ssize_t write_all(int fd, const char *buf, ssize_t len) {
             if (errno == EINTR) {
                 continue;
             }
-            return -1;
+            return total ? total : -1; // keep the error for later if we did partial write.
         }
         total += n;
     }
