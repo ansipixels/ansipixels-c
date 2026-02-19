@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #ifdef __APPLE__
 #include <util.h>
@@ -144,7 +145,11 @@ int main(int argc, char **argv) {
         quote_buf(&quoted, buf, readn);
         LOG_DEBUG("Read %zd bytes from stdin, sending to child %s", readn,
                   quoted.data);
-        write(fd, buf, readn); // send to PTY
+        ssize_t n = write(fd, buf, readn); // send to PTY
+        if (n != readn) {
+          LOG_ERROR("Error writing %zd vs %zd to PTY: %s", n, readn, strerror(errno));
+          break;
+        }
         iodone = true;
       } else if (readn == 0) {
         // EOF on stdin, stop monitoring it
@@ -159,7 +164,11 @@ int main(int argc, char **argv) {
         quote_buf(&quoted, buf, writen);
         LOG_DEBUG("Read %zd bytes from PTY, outputting to stdout %s", writen,
                   quoted.data);
-        write(1, buf, writen);
+        ssize_t n = write(1, buf, writen);
+        if (n != writen) {
+          LOG_ERROR("Error writing %zd vs %zd to stdout: %s", n, writen, strerror(errno));
+          break;
+        }
         iodone = true;
       } else if (writen == 0 || (writen < 0 && errno == EIO)) {
         // PTY closed or EIO - child has ended
@@ -198,9 +207,10 @@ int main(int argc, char **argv) {
     if (wpid > 0) {
       // Child exited, log it and close loop
       if (WIFEXITED(status)) {
+        int status_code = WEXITSTATUS(status);
         LOG_INFO("Program '%s' exited with status %d", program,
-                 WEXITSTATUS(status));
-        ourStatus = 1;
+                 status_code);
+        ourStatus = status_code?1:0;
       } else if (WIFSIGNALED(status)) {
         LOG_INFO("Program '%s' was killed by signal %d", program,
                  WTERMSIG(status));
