@@ -11,7 +11,7 @@ Currently Unix / POSIX only (with high resolution timer optimization for macOS (
 
 You can download demo binaries and *.h and libansipixels.a from [releases](releases/) or build from source.
 
-See [demos](demos/): [fps.c](demos/fps.c) and [main.c](demos/main.c) for example, or, for instance with prog.c being:
+See [demos](demos/): [fps.c](demos/fps.c) and [ansipixels_demo.c](demos/ansipixels_demo.c) for example, or, for instance with prog.c being:
 ```c
 #include "ansipixels.h"
 
@@ -35,9 +35,15 @@ Terminal in raw mode - 101 x 35
 
 See [record](demos/record.c) for a interesting demo of interception of TUI and recording of stats. For instance:
 ```sh
-make clean record DEBUG=0 SAN=
-./record --hud -- go run fortio.org/terminal/fps@latest -fire -truecolor
+make clean record filter DEBUG=0 SAN=
+rm fps.rec # default is to append to file
+./record --hud --output fps.rec -- go run fortio.org/terminal/fps@latest -fire -truecolor
 ```
+And you can then replay with filtering and pausing after 2nd frame:
+```sh
+./filter -p -n 3 fps.rec
+```
+
 <hr/>
 
 (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
