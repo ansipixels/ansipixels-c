@@ -100,7 +100,7 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                 }
                 char start = input->data[2];
                 LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, recursing", c, start, i);
-                if (mode == FILTER_DEFAULT && start != '?' && c != 'n') {
+                if (mode == FILTER_DEFAULT && start != '?' && c != 'n' && c != 'c') {
                     // Keep non-query or status CSI in default mode (for colors/cursor moves).
                     transfer(output, input, i + 1);
                 } else {
@@ -110,7 +110,19 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                 return filter(input, output, mode);
             }
         }
-        LOG_DEBUG("Did not find end of ANSI sequence, waiting for more data to read");
+        LOG_DEBUG("Did not find end of CSI sequence, waiting for more data to read");
+        break;
+    case ']': // OSC sequence, yank it until BEL or ST (ESC \)
+        LOG_DEBUG("Found OSC sequence: %s", debug_buf(&quoted, *input));
+        for (int i = 2; i < (int)input->size; i++) {
+            c = input->data[i];
+            if (c == '\a' || (c == '\\' && i > 2 && input->data[i - 1] == '\x1b')) {
+                LOG_DEBUG("Found end of OSC sequence at %d, recursing", i);
+                consume(input, i + 1);
+                return filter(input, output, mode);
+            }
+        }
+        LOG_DEBUG("Did not find end of OSC sequence, waiting for more data to read");
         break;
     default:
         LOG_ERROR("Found other ANSI sequence starting with ESC %d %c", c, c);
