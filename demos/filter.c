@@ -32,7 +32,6 @@ static buffer quoted = {0};
 static int frames_limit = -1; // default to no frame limit
 static int frames_count = 0;
 
-
 void usage(const char *prog) {
     fprintf(stderr, "Usage: %s [flags] [filename or stdin]\n", prog);
     fprintf(stderr, "Flags:\n");
@@ -46,9 +45,6 @@ typedef enum filter_mode {
     FILTER_DEFAULT, // only filter query and mode settings sequences
     FILTER_ALL      // filter all ANSI sequences, leaving only the text content
 } filter_mode;
-
-static bool filterALL(buffer *input, buffer *output);
-static bool filterDefault(buffer *input, buffer *output);
 
 // Returns true unless we reached the frames limit.
 bool filter(buffer *input, buffer *output, filter_mode mode) {
@@ -76,74 +72,25 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
         // Not enough data to contain a full ANSI sequence, wait for more data to read.
         return true;
     }
-    switch (mode) {
-    case FILTER_DEFAULT:
-        return filterDefault(input, output);
-    case FILTER_ALL:
-        return filterALL(input, output);
-    }
-}
-
-static bool filterALL(buffer *input, buffer *output) {
     int c = input->data[1]; // should be ESC, we assert it:
     LOG_DEBUG("Found ANSI sequence starting with ESC %d (%c)", c, c);
     switch (c) {
     case '7':
-    case '8': // DECSC/DECRC save/restore cursor position, we just remove it.
-        LOG_DEBUG("Found DECSC/DECRC sequence ESC %c, removing it", c);
-        consume(input, 2); // remove the ESC and the 7/8 byte, and filter the rest recursively
-        return filter(input, output, FILTER_ALL);
-    case '[': // CSI sequence.
-        LOG_DEBUG("Found CSI sequence: %s", debug_buf(&quoted, *input));
-        // We skip the whole ANSI sequence, which ends with a letter (A-Z or a-z) after the ESC[ and parameters.
-        // get to closing 0x40 - 0x7E byte
-        for (int i = 2; i < (int)input->size; i++) {
-            c = input->data[i];
-            if (c >= 0x40 && c <= 0x7E) {
-                if (c=='J') {
-                    frames_count++;
-                    LOG_DEBUG("Found clear screen sequence, frames count now %d", frames_count);
-                    if (frames_limit > 0 && frames_count >= frames_limit) {
-                        LOG_DEBUG("Reached frames limit of %d, stopping processing", frames_limit);
-                        return false; // stop processing
-                    }
-                }
-                // found end of ANSI sequence, we skip it and filter the rest recursively
-                LOG_DEBUG("Found end of ANSI sequence %c at %d, recursing", c, i);
-                consume(input, i + 1);             // remove the whole ANSI sequence from input
-                return filter(input, output, FILTER_ALL); // filter the rest of the input
-            }
+    case '8': // DECSC/DECRC save/restore cursor position.
+        LOG_DEBUG("Found DECSC/DECRC sequence ESC %c", c);
+        if (mode == FILTER_ALL) {
+            consume(input, 2); // remove ESC and the 7/8 byte
+        } else {
+            transfer(output, input, 2);
         }
-        LOG_DEBUG("Did not find end of ANSI sequence, waiting for more data to read");
-        break;
-    default:
-        LOG_ERROR("\nFound other ANSI sequence starting with ESC %d %c\n", c, c);
-#if DEBUG
-        debug_print_buf(*input);
-        return false;
-#endif
-    }
-    return true;
-}
-
-static bool filterDefault(buffer *input, buffer *output) {
-    int c = input->data[1]; // should be ESC, we assert it:
-    LOG_DEBUG("Found ANSI sequence starting with ESC %d (%c)", c, c);
-    switch (c) {
-    case '7':
-    case '8': // DECSC/DECRC save/restore cursor position, we just keep it.
-        LOG_DEBUG("Found DECSC/DECRC sequence ESC %c, keeping it", c);
-        transfer(output, input, 2);
-        return filter(input, output, FILTER_DEFAULT);
+        return filter(input, output, mode);
     case '[': // CSI sequence.
         LOG_DEBUG("Found CSI sequence: %s", debug_buf(&quoted, *input));
-        // We skip the whole ANSI sequence, which ends with a letter (A-Z or a-z) after the ESC[ and parameters.
-        // get to closing 0x40 - 0x7E byte
+        // CSI ends at a final byte in the 0x40..0x7E range.
         for (int i = 2; i < (int)input->size; i++) {
             c = input->data[i];
             if (c >= 0x40 && c <= 0x7E) {
-                // found end of ANSI sequence, we skip it and filter the rest recursively
-                if (c=='J') {
+                if (c == 'J') {
                     frames_count++;
                     LOG_DEBUG("Found clear screen sequence, frames count now %d", frames_count);
                     if (frames_limit > 0 && frames_count >= frames_limit) {
@@ -152,14 +99,14 @@ static bool filterDefault(buffer *input, buffer *output) {
                     }
                 }
                 LOG_DEBUG("Found end of ANSI sequence %c at %d, recursing", c, i);
-                if (input->data[2] == '?') {
-                    LOG_DEBUG("Found query sequence, removing it");
-                    consume(input, i + 1);                 // remove the whole ANSI sequence from input
-                    return filter(input, output, FILTER_DEFAULT); // filter the rest of the input
+                if (mode == FILTER_DEFAULT && input->data[2] != '?') {
+                    // Keep non-query CSI in default mode (for colors/cursor moves).
+                    transfer(output, input, i + 1);
+                } else {
+                    // Drop all CSI in all-mode and query CSI in default mode.
+                    consume(input, i + 1);
                 }
-                // Keeping color etc
-                transfer(output, input, i + 1);        // transfer the whole ANSI sequence to output
-                return filter(input, output, FILTER_DEFAULT); // filter the rest of the input
+                return filter(input, output, mode);
             }
         }
         LOG_DEBUG("Did not find end of ANSI sequence, waiting for more data to read");
@@ -265,7 +212,7 @@ int main(int argc, char **argv) {
     if (frames_count < frames_limit && inputbuf.size > 0) {
         LOG_ERROR("Unterminated ANSI sequence in input buffer: %zu: %s", inputbuf.size, debug_buf(&quoted, inputbuf));
     }
-    LOG_INFO("Total read: %zu bytes, total written : %zu bytes, frames processed: %d", totalRead, totalWritten, frames_count);
+    LOG_INFO("Total read: %zu bytes, written : %zu bytes, frames processed: %d", totalRead, totalWritten, frames_count);
     free_buf(&quoted);
     free_buf(&outbuf);
     free_buf(&inputbuf);
