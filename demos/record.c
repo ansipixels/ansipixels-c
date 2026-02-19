@@ -15,7 +15,11 @@
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <unistd.h>
+#ifdef __APPLE__
 #include <util.h>
+#else
+#include <pty.h>
+#endif
 
 void usage(const char *prog) {
   fprintf(stderr, "Usage: %s [flags] program args...\n", prog);
