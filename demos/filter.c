@@ -98,9 +98,10 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                         return false; // stop processing
                     }
                 }
-                LOG_DEBUG("Found end of ANSI sequence %c at %d, recursing", c, i);
-                if (mode == FILTER_DEFAULT && input->data[2] != '?') {
-                    // Keep non-query CSI in default mode (for colors/cursor moves).
+                char start = input->data[2];
+                LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, recursing", c, start, i);
+                if (mode == FILTER_DEFAULT && start != '?' && c != 'n') {
+                    // Keep non-query or status CSI in default mode (for colors/cursor moves).
                     transfer(output, input, i + 1);
                 } else {
                     // Drop all CSI in all-mode and query CSI in default mode.
