@@ -164,8 +164,11 @@ const char *mempbrk(const char *s, size_t n, const char *accept,
   return NULL;
 }
 
-size_t write_all(int fd, const char *buf, size_t len) {
-  size_t total = 0;
+ssize_t write_all(int fd, const char *buf, ssize_t len) {
+  if (len <= 0) {
+    return len; // nothing to write
+  }
+  ssize_t total = 0;
   while (total < len) {
     ssize_t n = write(fd, buf + total, len - total);
     if (n < 0) {
@@ -174,7 +177,7 @@ size_t write_all(int fd, const char *buf, size_t len) {
       }
       return -1;
     }
-    total += (size_t)n;
+    total += n;
   }
-  return (ssize_t)total;
+  return total;
 }

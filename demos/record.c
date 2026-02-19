@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
         quote_buf(&quoted, buf, readn);
         LOG_DEBUG("Read %zd bytes from stdin, sending to child %s", readn,
                   quoted.data);
-        ssize_t n = write_all(fd, buf, (size_t)readn); // send to PTY
+        ssize_t n = write_all(fd, buf, readn); // send to PTY
         if (n < 0) {
           LOG_ERROR("Error writing %zd vs %zd to PTY: %s", n, readn,
                     strerror(errno));
@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
         quote_buf(&quoted, buf, writen);
         LOG_DEBUG("Read %zd bytes from PTY, outputting to stdout %s", writen,
                   quoted.data);
-        ssize_t n = write_all(1, buf, (size_t)writen);
+        ssize_t n = write_all(1, buf, writen);
         if (n < 0) {
           LOG_ERROR("Error writing %zd vs %zd to stdout: %s", n, writen,
                     strerror(errno));
