@@ -47,6 +47,20 @@ ssize_t read_buf(int fd, buffer *b) {
     return n;
 }
 
+ssize_t read_at_least(int fd, buffer *b, size_t min) {
+    ensure_cap(b, b->size + min);
+    return read_buf(fd, b);
+}
+
+ssize_t read_n(int fd, buffer *b, size_t n) {
+    ensure_cap(b, b->size + n);
+    ssize_t r = read(fd, b->data + b->size, n);
+    if (r > 0) {
+        b->size += r;
+    }
+    return r;
+}
+
 void consume(buffer *b, size_t n) {
 #if DEBUG
     if (n > b->size) {
@@ -71,17 +85,21 @@ void append_buf(buffer *dest, buffer src) { append_data(dest, src.data, src.size
 
 size_t max(size_t a, size_t b) { return a > b ? a : b; }
 
-void append_data(buffer *dest, const char *data, size_t size) {
-    size_t new_cap = dest->size + size;
-    if (new_cap > dest->cap) {
-        new_cap = max(new_cap,
-                      dest->cap * 2); // double capacity to reduce future reallocs
-        dest->data = realloc(dest->data, new_cap);
-        dest->cap = new_cap;
-#if DEBUG
-        dest->allocs++;
-#endif
+void ensure_cap(buffer *dest, size_t new_cap) {
+    if (new_cap <= dest->cap) {
+        return; // already have enough capacity
     }
+    new_cap = max(new_cap,
+                  dest->cap * 2); // double capacity to reduce future reallocs
+    dest->data = realloc(dest->data, new_cap);
+    dest->cap = new_cap;
+#if DEBUG
+    dest->allocs++;
+#endif
+}
+
+void append_data(buffer *dest, const char *data, size_t size) {
+    ensure_cap(dest, dest->size + size);
     memcpy(dest->data + dest->size, data, size);
     dest->size += size;
 }
