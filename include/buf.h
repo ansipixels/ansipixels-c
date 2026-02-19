@@ -41,3 +41,5 @@ void debug_print_buf(buffer b);
 // and returns a pointer to the first occurrence in s, or NULL if not found.
 const char *mempbrk(const char *s, size_t n, const char *accept,
                     size_t accept_len);
+
+size_t write_all(int fd, const char *buf, size_t len);
