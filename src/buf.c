@@ -15,10 +15,13 @@
 #include <sys/errno.h>
 
 buffer new_buf(size_t size) {
-    return (buffer){calloc(1, size), 0, size
+    return (buffer){
+        calloc(1, size),
+        0,
+        size
 #if DEBUG
-                    ,
-                    1
+        ,
+        1
 #endif
     };
 }
@@ -70,10 +73,13 @@ void append_str(buffer *dest, string src) { append_data(dest, src.data, src.size
 void append_byte(buffer *dest, char byte) { append_data(dest, &byte, 1); }
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
-    return (buffer){b.data + start, end - start, 0
+    return (buffer){
+        b.data + start,
+        end - start,
+        0
 #if DEBUG
-                    ,
-                    0
+        ,
+        0
 #endif
     }; // 0 cap for subslice
 }
@@ -131,14 +137,20 @@ void quote_buf(buffer *b, const char *s, size_t size) {
 
 void debug_print_buf(buffer b) {
     buffer quoted = debug_quote(b.data, b.size);
-    fprintf(stderr,
-            GREEN "INF buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d "
-                  "}" END_LOG,
-            (void *)b.data, quoted.data, b.size, b.cap,
+    fprintf(
+        stderr,
+        GREEN "INF buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d "
+              "}" END_LOG,
+        (void *)b.data,
+        quoted.data,
+        b.size,
+        b.cap,
 #if DEBUG
-            b.allocs, quoted.allocs
+        b.allocs,
+        quoted.allocs
 #else
-            -1, -1
+        -1,
+        -1
 #endif
     );
     free_buf(&quoted);

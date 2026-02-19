@@ -4,11 +4,9 @@ IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 ColumnLimit: 120
-BinPackArguments: true
+BinPackArguments: false
 BinPackParameters: true
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
-AlignAfterOpenBracket: Align
-#PenaltyBreakBeforeFirstCallParameter: 100
-#PenaltyExcessCharacter: 1000
+AlignAfterOpenBracket: BlockIndent
 ---

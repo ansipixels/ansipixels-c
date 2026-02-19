@@ -34,8 +34,11 @@ int main(void) {
     // Read from stdin in paste mode until 'Ctrl-C' or 'Ctrl-D' is pressed;
     // input is logged via the buffer debug print but not echoed to stdout
     ap_paste_on(ap);
-    write_str(STDOUT_FILENO, STR("Resize the window or type something (press "
-                                 "'Ctrl-C' or 'Ctrl-D' to quit):\n"));
+    write_str(
+        STDOUT_FILENO,
+        STR("Resize the window or type something (press "
+            "'Ctrl-C' or 'Ctrl-D' to quit):\n")
+    );
     b = new_buf(4096);
     int last_w = ap->w;
     int last_h = ap->h;

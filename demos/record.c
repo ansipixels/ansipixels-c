@@ -25,7 +25,8 @@ void usage(const char *prog) {
     fprintf(stderr, "Usage: %s [flags] program args...\n", prog);
     fprintf(stderr, "Flags:\n");
     fprintf(stderr, "  -h, --help    show this help message\n");
-    fprintf(stderr, "  --hud         enable HUD feature\n");
+    fprintf(stderr, "  -o, --output  save recording of the session to the given file\n");
+    fprintf(stderr, "  -H, --hud     enable HUD feature\n");
 }
 
 // Check if buffer ends with a complete UTF8 and ANSI sequence
@@ -68,21 +69,30 @@ bool partial_end(const char *buf, size_t len) {
 int main(int argc, char **argv) {
     bool hud = false;
     int opt;
+    char *ofilename = NULL;
 
     // Define long options
     static struct option long_options[] = {
-        {"help", no_argument, 0, 'h'}, {"hud", no_argument, 0, 'H'}, {0, 0, 0, 0} // terminator
+        // long flags
+        {"help", no_argument, 0, 'h'},
+        {"hud", no_argument, 0, 'H'},
+        {"output", required_argument, 0, 'o'},
+        // terminator
+        {0, 0, 0, 0}
     };
 
     // Parse flags using getopt_long
     int option_index = 0;
-    while ((opt = getopt_long(argc, argv, "h", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hHo:", long_options, &option_index)) != -1) {
         switch (opt) {
         case 'h':
             usage(argv[0]);
             return 0;
         case 'H': // --hud
             hud = true;
+            break;
+        case 'o': // --output
+            ofilename = optarg;
             break;
         default: // '?' for unknown option
             fprintf(stderr, "Error: unknown flag\n");
@@ -96,6 +106,17 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Error: no program specified\n");
         usage(argv[0]);
         return 1;
+    }
+    FILE *ofile = NULL;
+    if (ofilename) {
+        // append mode to avoid overwriting existing file, and to allow multiple runs to log to the same file if
+        // desired.
+        ofile = fopen(ofilename, "a");
+        if (!ofile) {
+            LOG_ERROR("Error opening output file '%s': %s", ofilename, strerror(errno));
+            return 1;
+        }
+        LOG_INFO("Recording session output to '%s'", ofilename);
     }
     ap_t ap = ap_open();
     if (ap == NULL) {
@@ -114,7 +135,7 @@ int main(int argc, char **argv) {
     }
     if (pid == 0) {
         // In child process: execute the requested program
-        LOG_INFO("In child process, executing program '%s'", program);
+        LOG_INFO("In child process, executing program '%s' at %dx%d", program, ws.ws_col, ws.ws_row);
         int ret = execvp(program, argv + optind);
         if (ret < 0) {
             LOG_ERROR("Error executing program '%s': %s", program, strerror(errno));
@@ -193,14 +214,23 @@ int main(int argc, char **argv) {
         if (ret > 0 && FD_ISSET(fd, &readfds)) {
             writen = read(fd, buf, sizeof(buf));
             if (writen > 0) {
+#if DEBUG
                 quoted.size = 0; // reset quoted buffer for reuse
                 quote_buf(&quoted, buf, writen);
                 LOG_DEBUG("Read %zd bytes from PTY, outputting to stdout %s", writen, quoted.data);
+#endif
                 ssize_t n = write_all(1, buf, writen);
                 if (n < 0) {
                     LOG_ERROR("Error writing %zd vs %zd to stdout: %s", n, writen, strerror(errno));
                     done = true;
                     break;
+                }
+                if (ofile) {
+                    ssize_t saved = fwrite(buf, 1, writen, ofile);
+                    if (saved != writen) {
+                        LOG_ERROR("Error writing %zd vs %zd to output file: %s", saved, writen, strerror(errno));
+                        return 1;
+                    }
                 }
                 // Check if child output ends with complete ANSI sequence
                 // we don't even call / check if hud mode is off.
