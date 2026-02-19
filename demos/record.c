@@ -29,6 +29,46 @@ void usage(const char *prog) {
   fprintf(stderr, "  --hud         enable HUD feature\n");
 }
 
+// Check if buffer ends with a complete UTF8 and ANSI sequence
+// Returns true if there's no incomplete sequence at the end.
+//
+bool ends_with_complete_sequence(const char *buf, size_t len) {
+  if (len == 0)
+    return true;
+
+  // If we're inside a UTF-8 multi-byte sequence that's also bad to cut:
+  // Check if the last byte is a UTF-8 continuation byte (0b10xxxxxx)
+  if ((unsigned char)buf[len - 1] >= 0x80) {
+    // ends with UTF-8 high byte: incomplete (even if actually it could be
+    // the last byte of a valid sequence, we treat it as incomplete to be safe)
+    return false;
+  }
+
+  // Find the last ESC character (0x1b)
+  int last_esc = -1;
+  for (int i = (int)len - 1; i >= 0; i--) {
+    if ((unsigned char)buf[i] == 0x1b) {
+      last_esc = i;
+      break;
+    }
+  }
+
+  if (last_esc == -1) {
+    // No ESC found, so no incomplete sequence
+    return true;
+  }
+  // Check if there's a complete sequence end (letter) after the last ESC
+  for (size_t i = last_esc + 1; i < len; i++) {
+    unsigned char c = (unsigned char)buf[i];
+    // ANSI sequences typically end with a letter (A-Z, a-z)
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+      return true; // found complete sequence ending
+    }
+  }
+  // Incomplete sequence (ESC followed by non-terminator chars, or nothing)
+  return false;
+}
+
 int main(int argc, char **argv) {
   bool hud = false;
   int opt;
@@ -101,6 +141,8 @@ int main(int argc, char **argv) {
   buffer quoted = {0};
   size_t totalRead = 0;
   size_t totalWritten = 0;
+  bool last_child_output_complete =
+      true; // track if last child output ends with complete sequence
   while (!done) {
     FD_ZERO(&readfds);
     if (!stdin_closed) {
@@ -147,7 +189,8 @@ int main(int argc, char **argv) {
                   quoted.data);
         ssize_t n = write(fd, buf, readn); // send to PTY
         if (n != readn) {
-          LOG_ERROR("Error writing %zd vs %zd to PTY: %s", n, readn, strerror(errno));
+          LOG_ERROR("Error writing %zd vs %zd to PTY: %s", n, readn,
+                    strerror(errno));
           break;
         }
         iodone = true;
@@ -166,9 +209,12 @@ int main(int argc, char **argv) {
                   quoted.data);
         ssize_t n = write(1, buf, writen);
         if (n != writen) {
-          LOG_ERROR("Error writing %zd vs %zd to stdout: %s", n, writen, strerror(errno));
+          LOG_ERROR("Error writing %zd vs %zd to stdout: %s", n, writen,
+                    strerror(errno));
           break;
         }
+        // Check if child output ends with complete ANSI sequence
+        last_child_output_complete = ends_with_complete_sequence(buf, writen);
         iodone = true;
       } else if (writen == 0 || (writen < 0 && errno == EIO)) {
         // PTY closed or EIO - child has ended
@@ -180,7 +226,8 @@ int main(int argc, char **argv) {
     if (iodone) {
       totalRead += readn;
       totalWritten += writen;
-      if (hud) {
+      // Only update HUD if child output ended with a complete ANSI sequence
+      if (hud && last_child_output_complete) {
         // If we did I/O, update the HUD with the latest child output
         ap_save_cursor(ap);
         ap_move_to(ap, 0, 0); // move to top
@@ -196,7 +243,7 @@ int main(int argc, char **argv) {
         ap_itoa(ap, totalWritten);
         append_str(&ap->buf, STR(") \033[m")); // reset colors
         ap_restore_cursor(ap);
-        ap_end(ap);
+        ap_flush(ap);
       }
       continue; // if we did I/O, skip waitpid check to the expense.
     }
@@ -208,9 +255,8 @@ int main(int argc, char **argv) {
       // Child exited, log it and close loop
       if (WIFEXITED(status)) {
         int status_code = WEXITSTATUS(status);
-        LOG_INFO("Program '%s' exited with status %d", program,
-                 status_code);
-        ourStatus = status_code?1:0;
+        LOG_INFO("Program '%s' exited with status %d", program, status_code);
+        ourStatus = status_code ? 1 : 0;
       } else if (WIFSIGNALED(status)) {
         LOG_INFO("Program '%s' was killed by signal %d", program,
                  WTERMSIG(status));
