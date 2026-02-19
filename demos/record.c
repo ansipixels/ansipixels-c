@@ -30,20 +30,18 @@ void usage(const char *prog) {
 }
 
 // Check if buffer ends with a complete UTF8 and ANSI sequence
-// Returns true if there's no incomplete sequence at the end.
-//
-bool ends_with_complete_sequence(const char *buf, size_t len) {
-  if (len == 0)
-    return true;
-
+// Returns true if there's an incomplete sequence at the end.
+bool partial_end(const char *buf, size_t len) {
+  if (len == 0) {
+    return false;
+  }
   // If we're inside a UTF-8 multi-byte sequence that's also bad to cut:
   // Check if the last byte is a UTF-8 continuation byte (0b10xxxxxx)
   if ((unsigned char)buf[len - 1] >= 0x80) {
     // ends with UTF-8 high byte: incomplete (even if actually it could be
     // the last byte of a valid sequence, we treat it as incomplete to be safe)
-    return false;
+    return true;
   }
-
   // Find the last ESC character (0x1b)
   int last_esc = -1;
   for (int i = (int)len - 1; i >= 0; i--) {
@@ -52,21 +50,20 @@ bool ends_with_complete_sequence(const char *buf, size_t len) {
       break;
     }
   }
-
   if (last_esc == -1) {
     // No ESC found, so no incomplete sequence
-    return true;
+    return false;
   }
   // Check if there's a complete sequence end (letter) after the last ESC
   for (size_t i = last_esc + 1; i < len; i++) {
     unsigned char c = (unsigned char)buf[i];
     // ANSI sequences typically end with a letter (A-Z, a-z)
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-      return true; // found complete sequence ending
+      return false; // found complete sequence ending
     }
   }
   // Incomplete sequence (ESC followed by non-terminator chars, or nothing)
-  return false;
+  return true;
 }
 
 int main(int argc, char **argv) {
@@ -141,8 +138,9 @@ int main(int argc, char **argv) {
   buffer quoted = {0};
   size_t totalRead = 0;
   size_t totalWritten = 0;
-  bool last_child_output_complete =
-      true; // track if last child output ends with complete sequence
+  // track if last child output ends with complete sequence and thus it's ok to
+  // update the HUD, ie to avoid corrupting mid utf8 or csi
+  bool hud_ok = hud;
   while (!done) {
     FD_ZERO(&readfds);
     if (!stdin_closed) {
@@ -216,7 +214,8 @@ int main(int argc, char **argv) {
           break;
         }
         // Check if child output ends with complete ANSI sequence
-        last_child_output_complete = ends_with_complete_sequence(buf, writen);
+        // we don't even call / check if hud mode is off.
+        hud_ok = hud && !partial_end(buf, writen);
         iodone = true;
       } else if (writen == 0 || (writen < 0 && errno == EIO)) {
         // PTY closed or EIO - child has ended
@@ -229,7 +228,7 @@ int main(int argc, char **argv) {
       totalRead += readn;
       totalWritten += writen;
       // Only update HUD if child output ended with a complete ANSI sequence
-      if (hud && last_child_output_complete) {
+      if (hud_ok) {
         // If we did I/O, update the HUD with the latest child output
         ap_save_cursor(ap);
         ap_move_to(ap, 0, 0); // move to top
