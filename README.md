@@ -32,6 +32,12 @@ gcc -I./include -Wall -Wextra prog.c  -L. -lansipixels
 Terminal in raw mode - 101 x 35
 ```
 
+
+See [record](demos/record.c) for a interesting demo of interception of TUI and recording of stats. For instance:
+```sh
+make clean record DEBUG=0 SAN=
+./record --hud -- go run fortio.org/terminal/fps@latest -fire -truecolor
+```
 <hr/>
 
 (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
