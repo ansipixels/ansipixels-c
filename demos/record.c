@@ -1,8 +1,7 @@
 /**
- * ansipixels-c:
- * A C library for rendering fast Terminal User Interfaces (TUIs)
- * using ANSI codes. Inspired by the Go library
- * https://pkg.go.dev/fortio.org/terminal/ansipixels
+ * record.c:
+ * Intercept and log the I/O of a child process in a pseudo-terminal (PTY),
+ * with an optional HUD overlay showing the latest stats.
  *
  * (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
  * Licensed under Apache-2.0 (see LICENSE).
