@@ -30,27 +30,23 @@
 #define END_LOG RESET "\n"
 
 #if DEBUG
-void log_debug(const char *file, int line, const char *fmt, ...)
-    __attribute__((format(printf, 3, 4)));
+void log_debug(const char *file, int line, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 #define LOG_DEBUG(...) log_debug(__FILE__, __LINE__, __VA_ARGS__)
 #else
 #define LOG_DEBUG(...) ((void)(0 && printf(__VA_ARGS__)))
 #endif
 
 // Returns 1 and logs a message without formatting/arguments.
-#define LOGF(msg)                                                              \
-  (fprintf(stderr, RED "FATAL ERR %s:%d: %s" END_LOG, __FILE__, __LINE__,      \
-           msg),                                                               \
-   1)
+#define LOGF(msg) (fprintf(stderr, RED "FATAL ERR %s:%d: %s" END_LOG, __FILE__, __LINE__, msg), 1)
 
-#define LOG_ERROR(fmt, ...)                                                    \
-  do {                                                                         \
-    fprintf(stderr, RED "ERR %s:%d: ", __FILE__, __LINE__);                    \
-    fprintf(stderr, fmt END_LOG, __VA_ARGS__);                                 \
-  } while (0)
+#define LOG_ERROR(fmt, ...)                                                                                            \
+    do {                                                                                                               \
+        fprintf(stderr, RED "ERR %s:%d: ", __FILE__, __LINE__);                                                        \
+        fprintf(stderr, fmt END_LOG, __VA_ARGS__);                                                                     \
+    } while (0)
 
-#define LOG_INFO(fmt, ...)                                                     \
-  do {                                                                         \
-    fprintf(stderr, GREEN "INF %s:%d: ", __FILE__, __LINE__);                  \
-    fprintf(stderr, fmt END_LOG, __VA_ARGS__);                                 \
-  } while (0)
+#define LOG_INFO(fmt, ...)                                                                                             \
+    do {                                                                                                               \
+        fprintf(stderr, GREEN "INF %s:%d: ", __FILE__, __LINE__);                                                      \
+        fprintf(stderr, fmt END_LOG, __VA_ARGS__);                                                                     \
+    } while (0)

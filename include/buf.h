@@ -12,11 +12,11 @@
 #include <unistd.h>
 
 typedef struct buf {
-  char *data;
-  size_t size;
-  size_t cap;
+    char *data;
+    size_t size;
+    size_t cap;
 #if DEBUG
-  int allocs; // for debugging reallocs
+    int allocs; // for debugging reallocs
 #endif
 } buffer;
 
@@ -39,7 +39,6 @@ void debug_print_buf(buffer b);
 
 // mempbrk is like memchr but searches for any of the bytes in accept
 // and returns a pointer to the first occurrence in s, or NULL if not found.
-const char *mempbrk(const char *s, size_t n, const char *accept,
-                    size_t accept_len);
+const char *mempbrk(const char *s, size_t n, const char *accept, size_t accept_len);
 
 ssize_t write_all(int fd, const char *buf, ssize_t len);
