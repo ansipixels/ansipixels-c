@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/errno.h>
 
 buffer new_buf(size_t size) {
   return (buffer){calloc(1, size), 0, size
@@ -161,4 +162,19 @@ const char *mempbrk(const char *s, size_t n, const char *accept,
     }
   }
   return NULL;
+}
+
+size_t write_all(int fd, const char *buf, size_t len) {
+  size_t total = 0;
+  while (total < len) {
+    ssize_t n = write(fd, buf + total, len - total);
+    if (n < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return -1;
+    }
+    total += (size_t)n;
+  }
+  return (ssize_t)total;
 }

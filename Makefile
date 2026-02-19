@@ -40,8 +40,8 @@ demos/%.o: demos/%.c include/ansipixels.h
 # Keep .o files for debugging
 .PRECIOUS: demos/%.o src/%.o
 
-run-fps: fps
-	./fps -n 10000 -t 1000
+run-fps: fps record
+	./record --hud -- ./fps -n 10000 -t 1000
 
 clean:
 	rm -rf src/*.o demos/*.o $(DEMO_BINS) libansipixels.a dist/*
