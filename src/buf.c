@@ -47,23 +47,69 @@ ssize_t read_buf(int fd, buffer *b) {
     return n;
 }
 
-ssize_t write_buf(int fd, buffer b) { return write(fd, b.data, b.size); }
+ssize_t read_at_least(int fd, buffer *b, size_t min) {
+    ensure_cap(b, b->size + min);
+    return read_buf(fd, b);
+}
+
+ssize_t read_n(int fd, buffer *b, size_t n) {
+    ensure_cap(b, b->size + n);
+    ssize_t r = read(fd, b->data + b->size, n);
+    if (r > 0) {
+        b->size += r;
+    }
+    return r;
+}
+
+void consume(buffer *b, size_t n) {
+#if DEBUG
+    if (n > b->size) {
+        LOG_ERROR("Attempt to consume more bytes than available in buffer: %zu > %zu", n, b->size);
+        abort();
+    }
+#endif
+    if (n == b->size) {
+        b->size = 0; // consume all
+    } else {
+        memmove(b->data, b->data + n, b->size - n);
+        b->size -= n;
+    }
+}
+
+void transfer(buffer *dest, buffer *src, size_t n) {
+#if DEBUG
+    if (n > src->size) {
+        LOG_ERROR("transfer n greater than src size: %zu > %zu", n, src->size);
+        abort();
+    }
+    if (dest == src) {
+        LOG_ERROR("transfer src==dst %p", (void *)src);
+        abort();
+    }
+#endif
+    append_data(dest, src->data, n);
+    consume(src, n);
+}
 
 void append_buf(buffer *dest, buffer src) { append_data(dest, src.data, src.size); }
 
 size_t max(size_t a, size_t b) { return a > b ? a : b; }
 
-void append_data(buffer *dest, const char *data, size_t size) {
-    size_t new_cap = dest->size + size;
-    if (new_cap > dest->cap) {
-        new_cap = max(new_cap,
-                      dest->cap * 2); // double capacity to reduce future reallocs
-        dest->data = realloc(dest->data, new_cap);
-        dest->cap = new_cap;
-#if DEBUG
-        dest->allocs++;
-#endif
+void ensure_cap(buffer *dest, size_t new_cap) {
+    if (new_cap <= dest->cap) {
+        return; // already have enough capacity
     }
+    new_cap = max(new_cap,
+                  dest->cap * 2); // double capacity to reduce future reallocs
+    dest->data = realloc(dest->data, new_cap);
+    dest->cap = new_cap;
+#if DEBUG
+    dest->allocs++;
+#endif
+}
+
+void append_data(buffer *dest, const char *data, size_t size) {
+    ensure_cap(dest, dest->size + size);
     memcpy(dest->data + dest->size, data, size);
     dest->size += size;
 }
@@ -99,6 +145,14 @@ buffer debug_quote(const char *s, size_t size) {
     buffer b = new_buf(size + 4);
     quote_buf(&b, s, size);
     return b;
+}
+
+const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data, b.size); }
+
+const char *debug_data(buffer *shared_buf, const char *data, size_t size) {
+    shared_buf->size = 0; // reset shared buffer for reuse
+    quote_buf(shared_buf, data, size);
+    return shared_buf->data;
 }
 
 void quote_buf(buffer *b, const char *s, size_t size) {
@@ -181,9 +235,11 @@ ssize_t write_all(int fd, const char *buf, ssize_t len) {
             if (errno == EINTR) {
                 continue;
             }
-            return -1;
+            return total ? total : -1; // keep the error for later if we did partial write.
         }
         total += n;
     }
     return total;
 }
+
+ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data, b.size); }
