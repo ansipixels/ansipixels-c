@@ -21,8 +21,17 @@ static void ap_update_size(ap_t ap) {
         LOG_DEBUG("Sigwinch: UNchanged size: %dx%d (%dx%d pixels)", ap->w, ap->h, ap->xpixel, ap->ypixel);
         return; // no change
     }
-    LOG_DEBUG("Sigwinch: CHANGED size: %dx%d (%dx%d pixels) -> %dx%d (%dx%d pixels)", ap->w, ap->h, ap->xpixel,
-              ap->ypixel, ws.ws_col, ws.ws_row, ws.ws_xpixel, ws.ws_ypixel);
+    LOG_DEBUG(
+        "Sigwinch: CHANGED size: %dx%d (%dx%d pixels) -> %dx%d (%dx%d pixels)",
+        ap->w,
+        ap->h,
+        ap->xpixel,
+        ap->ypixel,
+        ws.ws_col,
+        ws.ws_row,
+        ws.ws_xpixel,
+        ws.ws_ypixel
+    );
     ap->h = ws.ws_row;
     ap->w = ws.ws_col;
     ap->xpixel = ws.ws_xpixel;

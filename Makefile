@@ -42,6 +42,10 @@ demos/%.o: demos/%.c include/ansipixels.h
 
 run-fps: fps record
 	./record --hud -- ./fps -n 10000 -t 1000
+	$(RM) -f record.log
+	./record --hud --output ./record.log -- sh -c "echo hi && sleep 1 && echo bye"
+	@echo "--- record.log ---"
+	@cat record.log
 
 clean:
 	rm -rf src/*.o demos/*.o $(DEMO_BINS) libansipixels.a dist/*
