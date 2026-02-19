@@ -42,4 +42,4 @@ void debug_print_buf(buffer b);
 const char *mempbrk(const char *s, size_t n, const char *accept,
                     size_t accept_len);
 
-size_t write_all(int fd, const char *buf, size_t len);
+ssize_t write_all(int fd, const char *buf, ssize_t len);
