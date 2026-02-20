@@ -201,7 +201,6 @@ int main(int argc, char **argv) {
     int ifile = STDIN_FILENO; // default to stdin if no file provided
     char *name = "stdin";
     ap_t ap = NULL;
-    int stdin_flags = 0;
     if (optind < argc) {
         name = argv[optind];
         ifile = open(name, O_RDONLY);
@@ -218,17 +217,6 @@ int main(int argc, char **argv) {
             ap_hide_cursor(ap); // atexit will restore.
             ap_clear_screen(ap, false);
             ap_flush(ap);
-            // Make stdin non-blocking
-            stdin_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-            if (stdin_flags < 0) {
-                LOG_ERROR("Error getting flags for stdin: %s", strerror(errno));
-                return 1;
-            }
-            /*
-            if (fcntl(STDIN_FILENO, F_SETFL, stdin_flags | O_NONBLOCK) < 0) {
-                LOG_ERROR("Error setting stdin to non-blocking: %s", strerror(errno));
-                return 1;
-            }*/
         }
     } else if (pause_at_end) {
         LOG_ERROR("%s: Pause at end flag requires input as a file, cannot be used with stdin", argv[0]);
@@ -268,13 +256,17 @@ int main(int argc, char **argv) {
         }
         outbuf.size = 0; // reset output buffer for reuse
         totalWritten += m;
-        if (continue_processing && pause_at_end && false) {
-            ssize_t n = read_buf(STDIN_FILENO, &outbuf); // check for input to exit early between frames
+        if (continue_processing && pause_at_end && ap_stdin_ready(ap)) {
+            ssize_t n = read_buf(STDIN_FILENO, &outbuf); // read input only when select() says data is ready
             if (n > 0) {
                 LOG_DEBUG("Read %zd bytes: %s", n, debug_buf(&quoted, outbuf));
                 if (outbuf.data[0] == '\x03' || outbuf.data[0] == '\x04') { // Ctrl-C or Ctrl-D
-                    LOG_DEBUG("Exit input received, exiting");
-                    break;
+                    ap_move_to(ap, 0, 0);
+                    ap_str(ap, STR(RED));
+                    ap_str(ap, STR("Exit input request received, exiting..."));
+                    ap_str(ap, STR(RESET));
+                    ap_end_sync(ap);
+                    return 1;
                 }
                 outbuf.size = 0; // reset output buffer for reuse
             }
@@ -286,11 +278,6 @@ int main(int argc, char **argv) {
     if (pause_at_end) {
         ap_show_cursor(ap);
         ap_flush(ap);
-        // restore stdin flags to blocking for the final read_buf wait for input to exit.
-        if (fcntl(STDIN_FILENO, F_SETFL, stdin_flags) < 0) {
-            LOG_ERROR("Error restoring stdin flags: %s", strerror(errno));
-            return 1;
-        }
         read_buf(STDIN_FILENO, &outbuf); // wait for any input to exit
     }
     // always report when no frames_limit or we stopped before the limit.
