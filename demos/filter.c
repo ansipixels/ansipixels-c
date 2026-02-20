@@ -102,12 +102,17 @@ int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
                         return i + 1;
                     }
                     // TODO: Would strncmp like of ?2026 be faster/better?
+                    bool is_sync = false;
                     if (mode == FILTER_DEFAULT && c != 'n' && c != 'c' && c != 'u' &&
-                        (start != '?' || (i == 7 && (c == 'h' || c == 'l') && input->data[3] == '2' &&
-                                          input->data[4] == '0' && input->data[5] == '2' && input->data[6] == '6'))) {
+                        (start != '?' || (is_sync =(i == 7 && (c == 'h' || c == 'l') && input->data[3] == '2' &&
+                                          input->data[4] == '0' && input->data[5] == '2' && input->data[6] == '6')))) {
                         // Keep non-query non status non kitty CSI in default mode (for colors/cursor moves).
                         // And do also keep \033[?2026h and \033[?2026l (avoids flickering).
                         transfer(output, input, i + 1);
+                        if (is_sync && c == 'l') {
+                            // it's an end sync, let's emit.
+                            return 0;
+                        }
                     } else {
                         // Drop all CSI in all-mode and query CSI in default mode.
                         consume(input, i + 1);
