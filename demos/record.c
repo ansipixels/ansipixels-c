@@ -3,6 +3,9 @@
  * Intercept and log the I/O of a child process in a pseudo-terminal (PTY),
  * with an optional HUD overlay showing the latest stats.
  *
+ * TODO: probably save the terminal size explicitly so filter (replay) can
+ * ask the user to match it.
+ *
  * (C) 2026 Laurent Demailly <ldemailly at gmail> and contributors.
  * Licensed under Apache-2.0 (see LICENSE).
  */
