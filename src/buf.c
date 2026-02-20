@@ -69,7 +69,7 @@ ssize_t read_n(int fd, buffer *b, size_t n) {
 }
 
 void compact(buffer *b) {
-    if (b->start > 0 && b->size < b->start) {
+    if (b->size > 0 && b->start >= b->size) {
         memcpy(b->data, b->data + b->start, b->size);
         b->start = 0;
     }
