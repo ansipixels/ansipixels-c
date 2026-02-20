@@ -121,7 +121,7 @@ void ap_clear_screen(ap_t ap, bool immediate) {
 }
 
 void ap_start(ap_t ap) {
-    ap->buf.size = 0;
+    clear_buf(&ap->buf);            // reset buffer for new batch of commands
     ap_str(ap, STR("\033[?2026h")); // start sync/batch mode
 }
 
@@ -155,7 +155,7 @@ void ap_move_to(ap_t ap, int x, int y) {
 
 void ap_flush(ap_t ap) {
     write_buf(ap->out, ap->buf);
-    ap->buf.size = 0;
+    clear_buf(&ap->buf);
 }
 
 void ap_save_cursor(ap_t ap) {

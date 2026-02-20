@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
             LOG_ERROR("Error writing output: %s", strerror(errno));
             return 1;
         }
-        outbuf.size = 0; // reset output buffer for reuse
+        clear_buf(&outbuf); // reset output buffer for reuse
         totalWritten += m;
         if (new_frame_end_index > 0) {
             LOG_DEBUG("Outputting filtered clear screen sequence and text content until next frame");
@@ -303,7 +303,7 @@ int main(int argc, char **argv) {
                         ap_end(ap);
                         return 1;
                     }
-                    stdin_buf.size = 0; // reset input buffer for reuse
+                    clear_buf(&stdin_buf); // reset input buffer for reuse
                 }
             }
             // Pause at the end (!continued_processing) or if we hit a new frame.
@@ -313,7 +313,7 @@ int main(int argc, char **argv) {
                 read_buf(STDIN_FILENO, &stdin_buf); // wait for any input to exit
                 ap_hide_cursor(ap);
                 ap_flush(ap);
-                stdin_buf.size = 0; // reset input buffer for reuse
+                clear_buf(&stdin_buf); // reset input buffer for reuse
             }
         }
     } while (continue_processing);
@@ -332,5 +332,6 @@ int main(int argc, char **argv) {
     free_buf(&quoted);
     free_buf(&outbuf);
     free_buf(&inputbuf);
+    free_buf(&stdin_buf);
     return 0;
 }

@@ -23,7 +23,7 @@ int main(void) {
     ssize_t written = write_buf(STDOUT_FILENO, b);
     LOG_DEBUG("Wrote %zd bytes", written);
 
-    b.size = 0; // clear/reset/reuse
+    clear_buf(&b); // clear/reset/reuse
     append_str(&b, UTF8("Hello, 🌎!\n"));
     // same: debug print & output stdout
     debug_print_buf(b);
@@ -58,7 +58,7 @@ int main(void) {
             last_w = ap->w;
             last_h = ap->h;
         }
-        b.size = 0; // clear buffer for reuse
+        clear_buf(&b); // clear buffer for reuse
         ssize_t n = read_buf(STDIN_FILENO, &b);
         if (n < 0) {
             if (errno == EINTR) {
@@ -76,7 +76,7 @@ int main(void) {
         // write_buf(STDOUT_FILENO, b);
         const char *fc;
         static const char endlist[] = {'\x03', '\x04'}; // Ctrl-C and Ctrl-D
-        if ((fc = mempbrk(b.data, b.size, endlist, sizeof(endlist))) != NULL) {
+        if ((fc = mempbrk(b.data + b.start, b.size, endlist, sizeof(endlist))) != NULL) {
             LOG_DEBUG("Exit character %d found at offset %zd, exiting.", *fc, fc - b.data);
             break; // exit on 'Ctrl-C' or 'Ctrl-D' press
         }

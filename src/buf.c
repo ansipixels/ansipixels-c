@@ -52,15 +52,13 @@ ssize_t read_buf(int fd, buffer *b) {
 }
 
 ssize_t read_at_least(int fd, buffer *b, size_t min) {
-    size_t current_end = b->start + b->size;
-
-    ensure_cap(b, current_end + min);
+    ensure_room(b, min);
     return read_buf(fd, b);
 }
 
 ssize_t read_n(int fd, buffer *b, size_t n) {
+    ensure_room(b, n);
     size_t current_end = b->start + b->size;
-    ensure_cap(b, current_end + n);
     ssize_t r = read(fd, b->data + current_end, n);
     if (r > 0) {
         b->size += r;
@@ -68,11 +66,13 @@ ssize_t read_n(int fd, buffer *b, size_t n) {
     return r;
 }
 
-void compact(buffer *b) {
+bool compact(buffer *b) {
     if (b->size > 0 && b->start >= b->size) {
         memcpy(b->data, b->data + b->start, b->size);
         b->start = 0;
+        return true;
     }
+    return false;
 }
 
 void consume(buffer *b, size_t n) {
@@ -108,7 +108,30 @@ void transfer(buffer *dest, buffer *src, size_t n) {
 
 void append_buf(buffer *dest, buffer src) { append_data(dest, src.data + src.start, src.size); }
 
-size_t max(size_t a, size_t b) { return a > b ? a : b; }
+static inline size_t max(size_t a, size_t b) { return a > b ? a : b; }
+
+void clear_buf(buffer *b) {
+    b->start = 0;
+    b->size = 0;
+}
+
+static inline bool has_room(buffer *b, size_t n) {
+    size_t current_end = b->start + b->size;
+    return current_end + n <= b->cap;
+}
+
+void ensure_room(buffer *b, size_t n) {
+    if (has_room(b, n)) {
+        return; // already have enough room
+    }
+    // Before potentially expensive reallocating,
+    // try to compact the buffer to free up space at the end if possible.
+    if (compact(b) && has_room(b, n)) {
+        return; // compacting freed enough room, no need to realloc
+    }
+    // Note: b->start might have changed.
+    ensure_cap(b, b->start + b->size + n);
+}
 
 void ensure_cap(buffer *dest, size_t new_cap) {
     if (new_cap <= dest->cap) {

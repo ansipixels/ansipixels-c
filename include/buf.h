@@ -9,6 +9,7 @@
  */
 #pragma once
 #include "str.h"
+#include <stdbool.h>
 #include <unistd.h>
 
 typedef struct buf {
@@ -23,9 +24,12 @@ typedef struct buf {
 
 buffer new_buf(size_t size);
 void free_buf(buffer *b);
-// Move data to start, resets start to 0 and keeps size unchanged.
-void compact(buffer *b);
-void ensure_cap(buffer *dest, size_t new_cap);
+void clear_buf(buffer *b);
+// Copy non overlapping data to start, resets start to 0 and keeps size unchanged.
+// Returns true if compaction was actually done.
+bool compact(buffer *b);
+void ensure_cap(buffer *b, size_t new_cap);
+void ensure_room(buffer *b, size_t sz);
 
 ssize_t read_buf(int fd, buffer *b);
 
