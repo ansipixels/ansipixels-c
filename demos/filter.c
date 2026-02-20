@@ -15,7 +15,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -29,8 +28,6 @@ enum {
 };
 
 static buffer quoted = {0};
-static int frames_limit = -1; // default to no frame limit
-static int frames_count = 0;
 
 void usage(const char *prog) {
     fprintf(stderr, "Usage: %s [flags] [filename or stdin]\n", prog);
@@ -46,8 +43,9 @@ typedef enum filter_mode {
     FILTER_ALL      // filter all ANSI sequences, leaving only the text content
 } filter_mode;
 
-// Returns true unless we reached the frames limit.
-bool filter(buffer *input, buffer *output, filter_mode mode) {
+// Returns >0 if the clear screen sequence was found (ending at that
+// returned position, not transferred to output), otherwise 0.
+int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
     while (true) {
         char *esc = memchr(input->data, '\x1b', input->size);
         size_t n = input->size;
@@ -66,13 +64,14 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
             // No ANSI sequences, we just copied input to output, nothing left in input.
             LOG_DEBUG("No ANSI sequence found, transferred all %zu bytes to output", n);
             assert(input->size == 0);
-            return true;
+            return 0;
         }
         LOG_DEBUG("Input post transfer is now %s", debug_buf(&quoted, *input));
         if (input->size < 3) {
-            LOG_DEBUG("Not enough data to contain an ANSI sequence, waiting for more data to read");
+            LOG_DEBUG("Not enough data to contain a full ANSI sequence, waiting for more data to read");
             // Not enough data to contain a full ANSI sequence, wait for more data to read.
-            return true;
+            // if we found no (new) data and we reached EOF, it's an error, otherwise just wait for more data.
+            return eof ? -1 : 0;
         }
         int c = input->data[1]; // should be ESC, we assert it:
         LOG_DEBUG("Found ANSI sequence starting with ESC %d (%c)", c, c);
@@ -97,22 +96,17 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
             for (int i = 2; i < (int)input->size; i++) {
                 c = input->data[i];
                 if (c >= 0x40 && c <= 0x7E) {
-                    if (c == 'J') {
-                        frames_count++;
-                        LOG_DEBUG("Found clear screen sequence, frames count now %d", frames_count);
-                        if (frames_limit > 0 && frames_count >= frames_limit) {
-                            LOG_DEBUG("Reached frames limit of %d, stopping processing", frames_limit);
-                            return false; // stop processing
-                        }
-                    }
                     char start = input->data[2];
                     LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, continuing", c, start, i);
+                    if (c == 'J') {
+                        return i + 1;
+                    }
                     // TODO: Would strncmp like of ?2026 be faster/better?
                     if (mode == FILTER_DEFAULT && c != 'n' && c != 'c' && c != 'u' &&
                         (start != '?' || (i == 7 && (c == 'h' || c == 'l') && input->data[3] == '2' &&
                                           input->data[4] == '0' && input->data[5] == '2' && input->data[6] == '6'))) {
-                        // Keep non-query or status or kitty CSI in default mode (for colors/cursor moves).
-                        // except for \033[?2026h and \033[?2026l in default mode (avoids flickering).
+                        // Keep non-query non status non kitty CSI in default mode (for colors/cursor moves).
+                        // And do also keep \033[?2026h and \033[?2026l (avoids flickering).
                         transfer(output, input, i + 1);
                     } else {
                         // Drop all CSI in all-mode and query CSI in default mode.
@@ -121,8 +115,8 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                     goto next_iteration;
                 }
             }
-            LOG_DEBUG("Did not find end of CSI sequence, waiting for more data to read");
-            return true;
+            LOG_DEBUG("Did not find end of CSI sequence, waiting for more data to read eof=%d", eof);
+            return eof ? -1 : 0;
         case ']': // OSC sequence, yank it until BEL or ST (ESC \)
             LOG_DEBUG("Found OSC sequence: %s", debug_buf(&quoted, *input));
             for (int i = 2; i < (int)input->size; i++) {
@@ -134,7 +128,7 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                 }
             }
             LOG_DEBUG("Did not find end of OSC sequence, waiting for more data to read");
-            return true;
+            return eof ? -1 : 0;
         case 'P': // DCS sequence, yank until ST (ESC \)
             LOG_DEBUG("Found DCS sequence: %s", debug_buf(&quoted, *input));
             for (int i = 2; i < (int)input->size; i++) {
@@ -146,7 +140,7 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                 }
             }
             LOG_DEBUG("Did not find end of DCS sequence, waiting for more data to read");
-            return true;
+            return eof ? -1 : 0;
         case '(':
         case ')': // SCS sequence, we ignore it in all modes, it's followed by an extra character.
             LOG_DEBUG("Found SCS sequence ESC %c", c);
@@ -155,7 +149,7 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
         default:
             LOG_ERROR("Found other ANSI sequence starting with ESC %d %c - please report a bug", c, c);
             debug_print_buf(*input);
-            return false;
+            return -1;
         }
     next_iteration:
         continue;
@@ -178,6 +172,8 @@ int main(int argc, char **argv) {
     int opt;
     filter_mode mode = FILTER_DEFAULT;
     bool pause_at_end = false;
+    int frames_limit = -1; // default to no frame limit
+
     while ((opt = getopt_long(argc, argv, "han:p", long_options, &option_index)) != -1) {
         switch (opt) {
         case 'h':
@@ -235,6 +231,10 @@ int main(int argc, char **argv) {
     buffer inputbuf = new_buf(BUF_SIZE);
     buffer outbuf = new_buf(BUF_SIZE);
     bool continue_processing = true;
+    int new_frame_end_index = 0;
+    int frames_count = 0;
+    buffer stdin_buf = new_buf(BUF_SIZE);
+    bool eof = false;
     do {
         // Make sure we will eventually find the end (or EOF) even with tiny test buffer size.
         ssize_t n = read_n(ifile, &inputbuf, BUF_SIZE);
@@ -243,11 +243,25 @@ int main(int argc, char **argv) {
             return 1;
         }
         if (n == 0) {
-            break; // EOF
+            eof = true;
+            if (inputbuf.size == 0) {
+                continue_processing = false; // EOF
+                goto pause_check;
+            }
         }
         totalRead += n;
         LOG_DEBUG("Read %zd bytes, inputbuf now %s", n, debug_buf(&quoted, inputbuf));
-        continue_processing = filter(&inputbuf, &outbuf, mode);
+        new_frame_end_index = filter(&inputbuf, &outbuf, mode, eof);
+        if (new_frame_end_index < 0) {
+            continue_processing = false;
+        } else if (new_frame_end_index > 0) {
+            frames_count++;
+            LOG_DEBUG("Found clear screen sequence offset %d, frames count now %d", new_frame_end_index, frames_count);
+            if (frames_limit > 0 && frames_count >= frames_limit) {
+                LOG_DEBUG("Reached frames limit of %d, stopping processing", frames_limit);
+                continue_processing = false;
+            }
+        }
         LOG_DEBUG("Filtered to %zd bytes %s", outbuf.size, debug_buf(&quoted, outbuf));
         ssize_t m = write_buf(1, outbuf);
         if (m < 0) {
@@ -256,33 +270,56 @@ int main(int argc, char **argv) {
         }
         outbuf.size = 0; // reset output buffer for reuse
         totalWritten += m;
-        if (continue_processing && pause_at_end && ap_stdin_ready(ap)) {
-            ssize_t n = read_buf(STDIN_FILENO, &outbuf); // read input only when select() says data is ready
-            if (n > 0) {
-                LOG_DEBUG("Read %zd bytes: %s", n, debug_buf(&quoted, outbuf));
-                if (outbuf.data[0] == '\x03' || outbuf.data[0] == '\x04') { // Ctrl-C or Ctrl-D
-                    ap_move_to(ap, 0, 0);
-                    ap_str(ap, STR(RED));
-                    ap_str(ap, STR("Exit input request received, exiting..."));
-                    ap_str(ap, STR(RESET));
-                    ap_end_sync(ap);
-                    return 1;
+        if (new_frame_end_index > 0) {
+            LOG_DEBUG("Outputting filtered clear screen sequence and text content until next frame");
+            if (mode == FILTER_ALL) {
+                // remove the clear screen sequence (filter all).
+                consume(&inputbuf, new_frame_end_index);
+            } else {
+                // add that clear screen to the output buffer for next iteration.
+                transfer(&outbuf, &inputbuf, new_frame_end_index);
+            }
+        }
+    pause_check:
+        if (pause_at_end) {
+            // Check for Ctrl-C or Ctrl-D without blocking.
+            if (continue_processing && ap_stdin_ready(ap)) {
+                ssize_t stdin_n =
+                    read_buf(STDIN_FILENO, &stdin_buf); // read input only when select() says data is ready
+                if (stdin_n > 0) {
+                    LOG_DEBUG("Read %zd bytes: %s", stdin_n, debug_buf(&quoted, stdin_buf));
+                    if (stdin_buf.data[0] == '\x03' || stdin_buf.data[0] == '\x04') { // Ctrl-C or Ctrl-D
+                        ap_move_to(ap, 0, 0);
+                        ap_str(ap, STR(RED));
+                        ap_str(ap, STR("Exit input request received, exiting..."));
+                        ap_str(ap, STR(RESET));
+                        ap_end(ap);
+                        return 1;
+                    }
+                    stdin_buf.size = 0; // reset input buffer for reuse
                 }
-                outbuf.size = 0; // reset output buffer for reuse
+            }
+            // Pause at the end (!continued_processing) or if we hit a new frame.
+            if (!continue_processing || new_frame_end_index > 0) {
+                ap_show_cursor(ap);
+                ap_end(ap);
+                read_buf(STDIN_FILENO, &stdin_buf); // wait for any input to exit
+                ap_hide_cursor(ap);
+                ap_flush(ap);
+                stdin_buf.size = 0; // reset input buffer for reuse
             }
         }
     } while (continue_processing);
     if (ifile != STDIN_FILENO) {
         close(ifile);
     }
-    if (pause_at_end) {
-        ap_show_cursor(ap);
-        ap_flush(ap);
-        read_buf(STDIN_FILENO, &outbuf); // wait for any input to exit
-    }
     // always report when no frames_limit or we stopped before the limit.
     if (inputbuf.size > 0 && frames_count != frames_limit) {
-        LOG_ERROR("Unterminated ANSI sequence in input buffer: %zu: %s", inputbuf.size, debug_buf(&quoted, inputbuf));
+        LOG_ERROR(
+            "Unterminated ANSI sequence in input buffer: %zu: %s",
+            inputbuf.size,
+            debug_buf(&quoted, slice_buf(inputbuf, 0, 20))
+        );
     }
     LOG_INFO("Total read: %zu bytes, written : %zu bytes, frames processed: %d", totalRead, totalWritten, frames_count);
     free_buf(&quoted);
