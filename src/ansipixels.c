@@ -127,8 +127,7 @@ void ap_start(ap_t ap) {
 
 void ap_end(ap_t ap) {
     ap_str(ap, STR("\033[?2026l")); // end sync/batch mode
-    write_buf(ap->out, ap->buf);
-    ap->buf.size = 0;
+    ap_flush(ap);
 }
 
 void ap_itoa(ap_t ap, int n) {
@@ -177,7 +176,7 @@ void ap_show_cursor(ap_t ap) {
 
 // Poll stdin without changing file status flags (which may be shared with stdout/stderr on a tty).
 bool ap_stdin_ready(ap_t _) {
-    (void)_;  // mark as unused for now.
+    (void)_; // mark as unused for now.
     fd_set rfds;
     FD_ZERO(&rfds);
     FD_SET(STDIN_FILENO, &rfds);
@@ -192,15 +191,4 @@ bool ap_stdin_ready(ap_t _) {
     return r > 0 && FD_ISSET(STDIN_FILENO, &rfds);
 }
 
-void ap_start_sync(ap_t ap) {
-    ap_str(ap, STR("\033[?2026h")); // start sync/batch mode
-}
-
-void ap_end_sync(ap_t ap) {
-    ap_str(ap, STR("\033[?2026l")); // end sync/batch mode
-    ap_flush(ap);
-}
-
-void ap_str(ap_t ap, string s) {
-    append_data(&ap->buf, s.data, s.size);
-}
+void ap_str(ap_t ap, string s) { append_data(&ap->buf, s.data, s.size); }

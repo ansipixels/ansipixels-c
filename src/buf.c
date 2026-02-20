@@ -119,6 +119,10 @@ void append_str(buffer *dest, string src) { append_data(dest, src.data, src.size
 void append_byte(buffer *dest, char byte) { append_data(dest, &byte, 1); }
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
+    if (end > b.size) {
+        end = b.size; // allow slice end to be after end of buffer but clamp it to buffer size to avoid out of bounds
+                      // access
+    }
     return (buffer){
         b.data + start,
         end - start,

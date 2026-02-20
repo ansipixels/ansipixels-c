@@ -15,7 +15,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #ifdef __APPLE__
