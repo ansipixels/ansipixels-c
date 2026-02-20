@@ -39,9 +39,10 @@ make clean record filter DEBUG=0 SAN=
 rm fps.rec # default is to append to file
 ./record --hud --output fps.rec -- go run fortio.org/terminal/fps@latest -fire -truecolor
 ```
-And you can then replay with filtering and pausing after 2nd frame:
+And you can then replay with filtering and pausing after 3rd frame (clear screen):
 ```sh
-./filter -p -n 3 fps.rec
+./filter -p -n 3 fps.rec # replay until 3rd page
+./filter -p fps.rec # replay all
 ```
 
 <hr/>

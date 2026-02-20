@@ -229,7 +229,6 @@ int main(int argc, char **argv) {
         }
         totalRead += n;
         LOG_DEBUG("Read %zd bytes, inputbuf now %s", n, debug_buf(&quoted, inputbuf));
-        // TODO: non 'all' filter.
         continue_processing = filter(&inputbuf, &outbuf, mode);
         LOG_DEBUG("Filtered to %zd bytes %s", outbuf.size, debug_buf(&quoted, outbuf));
         ssize_t m = write_buf(1, outbuf);
@@ -246,7 +245,8 @@ int main(int argc, char **argv) {
     if (pause_at_end) {
         getchar();
     }
-    if (frames_count < frames_limit && inputbuf.size > 0) {
+    // always report when no frames_limit or we stopped before the limit.
+    if (inputbuf.size > 0 && frames_count != frames_limit) {
         LOG_ERROR("Unterminated ANSI sequence in input buffer: %zu: %s", inputbuf.size, debug_buf(&quoted, inputbuf));
     }
     LOG_INFO("Total read: %zu bytes, written : %zu bytes, frames processed: %d", totalRead, totalWritten, frames_count);
