@@ -149,12 +149,9 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
             consume(input, 3); // remove ESC and the ( or ) byte
             continue;
         default:
-            LOG_ERROR("Found other ANSI sequence starting with ESC %d %c", c, c);
+            LOG_ERROR("Found other ANSI sequence starting with ESC %d %c - please report a bug", c, c);
             debug_print_buf(*input);
-#if DEBUG
             return false;
-#endif
-            return true;
         }
     next_iteration:
         continue;
