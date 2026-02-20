@@ -15,7 +15,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #ifdef __APPLE__
@@ -248,16 +247,16 @@ int main(int argc, char **argv) {
                 ap_save_cursor(ap);
                 ap_move_to(ap, 0, 0); // move to top
                 // Inverse colors for visibility, and show total read/written
-                append_str(&ap->buf, STR("\033[7m")); // inverse colors
-                append_str(&ap->buf, STR("R: "));
+                ap_str(ap, STR("\033[7m")); // inverse colors
+                ap_str(ap, STR("R: "));
                 ap_itoa(ap, readn);
-                append_str(&ap->buf, STR(" ("));
+                ap_str(ap, STR(" ("));
                 ap_itoa(ap, totalRead);
-                append_str(&ap->buf, STR("), W: "));
+                ap_str(ap, STR("), W: "));
                 ap_itoa(ap, writen);
-                append_str(&ap->buf, STR(" ("));
+                ap_str(ap, STR(" ("));
                 ap_itoa(ap, totalWritten);
-                append_str(&ap->buf, STR(") \033[m")); // reset colors
+                ap_str(ap, STR(") \033[m")); // reset colors
                 ap_restore_cursor(ap);
                 ap_flush(ap);
             }

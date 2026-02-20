@@ -18,6 +18,7 @@ buffer new_buf(size_t size) {
     return (buffer){
         calloc(1, size),
         0,
+        0,
         size
 #if DEBUG
         ,
@@ -34,13 +35,16 @@ void free_buf(buffer *b) {
         return; // nothing to free
     }
     free(b->data);
+    b->start = 0;
     b->cap = 0;
     b->size = 0;
     b->data = NULL;
 }
 
 ssize_t read_buf(int fd, buffer *b) {
-    ssize_t n = read(fd, b->data + b->size, b->cap - b->size);
+    size_t current_end = b->start + b->size;
+    size_t available_space = b->cap - current_end;
+    ssize_t n = read(fd, b->data + current_end, available_space);
     if (n > 0) {
         b->size += n;
     }
@@ -48,17 +52,27 @@ ssize_t read_buf(int fd, buffer *b) {
 }
 
 ssize_t read_at_least(int fd, buffer *b, size_t min) {
-    ensure_cap(b, b->size + min);
+    ensure_room(b, min);
     return read_buf(fd, b);
 }
 
 ssize_t read_n(int fd, buffer *b, size_t n) {
-    ensure_cap(b, b->size + n);
-    ssize_t r = read(fd, b->data + b->size, n);
+    ensure_room(b, n);
+    size_t current_end = b->start + b->size;
+    ssize_t r = read(fd, b->data + current_end, n);
     if (r > 0) {
         b->size += r;
     }
     return r;
+}
+
+bool compact(buffer *b) {
+    if (b->size > 0 && b->start >= b->size) {
+        memcpy(b->data, b->data + b->start, b->size);
+        b->start = 0;
+        return true;
+    }
+    return false;
 }
 
 void consume(buffer *b, size_t n) {
@@ -69,9 +83,10 @@ void consume(buffer *b, size_t n) {
     }
 #endif
     if (n == b->size) {
-        b->size = 0; // consume all
+        b->size = 0;  // consume all
+        b->start = 0; // reset start to avoid unbounded growth
     } else {
-        memmove(b->data, b->data + n, b->size - n);
+        b->start += n;
         b->size -= n;
     }
 }
@@ -87,13 +102,36 @@ void transfer(buffer *dest, buffer *src, size_t n) {
         abort();
     }
 #endif
-    append_data(dest, src->data, n);
+    append_data(dest, src->data + src->start, n);
     consume(src, n);
 }
 
-void append_buf(buffer *dest, buffer src) { append_data(dest, src.data, src.size); }
+void append_buf(buffer *dest, buffer src) { append_data(dest, src.data + src.start, src.size); }
 
-size_t max(size_t a, size_t b) { return a > b ? a : b; }
+static inline size_t max(size_t a, size_t b) { return a > b ? a : b; }
+
+void clear_buf(buffer *b) {
+    b->start = 0;
+    b->size = 0;
+}
+
+static inline bool has_room(buffer *b, size_t n) {
+    size_t current_end = b->start + b->size;
+    return current_end + n <= b->cap;
+}
+
+void ensure_room(buffer *b, size_t n) {
+    if (has_room(b, n)) {
+        return; // already have enough room
+    }
+    // Before potentially expensive reallocating,
+    // try to compact the buffer to free up space at the end if possible.
+    if (compact(b) && has_room(b, n)) {
+        return; // compacting freed enough room, no need to realloc
+    }
+    // Note: b->start might have changed.
+    ensure_cap(b, b->start + b->size + n);
+}
 
 void ensure_cap(buffer *dest, size_t new_cap) {
     if (new_cap <= dest->cap) {
@@ -109,8 +147,9 @@ void ensure_cap(buffer *dest, size_t new_cap) {
 }
 
 void append_data(buffer *dest, const char *data, size_t size) {
-    ensure_cap(dest, dest->size + size);
-    memcpy(dest->data + dest->size, data, size);
+    size_t current_end = dest->start + dest->size;
+    ensure_cap(dest, current_end + size);
+    memcpy(dest->data + current_end, data, size);
     dest->size += size;
 }
 
@@ -119,8 +158,13 @@ void append_str(buffer *dest, string src) { append_data(dest, src.data, src.size
 void append_byte(buffer *dest, char byte) { append_data(dest, &byte, 1); }
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
+    if (end > b.size) {
+        end = b.size; // allow slice end to be after end of buffer but clamp it to buffer size to avoid out of bounds
+                      // access
+    }
     return (buffer){
-        b.data + start,
+        b.data + b.start + start,
+        0,
         end - start,
         0
 #if DEBUG
@@ -147,7 +191,7 @@ buffer debug_quote(const char *s, size_t size) {
     return b;
 }
 
-const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data, b.size); }
+const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data + b.start, b.size); }
 
 const char *debug_data(buffer *shared_buf, const char *data, size_t size) {
     shared_buf->size = 0; // reset shared buffer for reuse
@@ -190,13 +234,14 @@ void quote_buf(buffer *b, const char *s, size_t size) {
 }
 
 void debug_print_buf(buffer b) {
-    buffer quoted = debug_quote(b.data, b.size);
+    buffer quoted = debug_quote(b.data + b.start, b.size);
     fprintf(
         stderr,
-        GREEN "INF buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d "
+        GREEN "INF buffer { data: %p = %s, start: %zu, size: %zu, cap: %zu, allocs: %d/%d "
               "}" END_LOG,
         (void *)b.data,
         quoted.data,
+        b.start,
         b.size,
         b.cap,
 #if DEBUG
@@ -242,4 +287,4 @@ ssize_t write_all(int fd, const char *buf, ssize_t len) {
     return total;
 }
 
-ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data, b.size); }
+ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data + b.start, b.size); }

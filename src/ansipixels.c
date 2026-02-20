@@ -50,6 +50,7 @@ void ap_cleanup(void) {
     if (!global_ap) {
         return; // nothing to clean up
     }
+    ap_show_cursor(global_ap);
     ap_end(global_ap);
     ap_paste_off(global_ap);
     term_restore();
@@ -116,18 +117,17 @@ void ap_clear_screen(ap_t ap, bool immediate) {
         write_str(ap->out, what);
         return;
     }
-    append_str(&ap->buf, what);
+    ap_str(ap, what);
 }
 
 void ap_start(ap_t ap) {
-    ap->buf.size = 0;
-    append_str(&ap->buf, STR("\033[?2026h")); // start sync/batch mode
+    clear_buf(&ap->buf);            // reset buffer for new batch of commands
+    ap_str(ap, STR("\033[?2026h")); // start sync/batch mode
 }
 
 void ap_end(ap_t ap) {
-    append_str(&ap->buf, STR("\033[?2026l")); // end sync/batch mode
-    write_buf(ap->out, ap->buf);
-    ap->buf.size = 0;
+    ap_str(ap, STR("\033[?2026l")); // end sync/batch mode
+    ap_flush(ap);
 }
 
 void ap_itoa(ap_t ap, int n) {
@@ -146,7 +146,7 @@ void ap_itoa(ap_t ap, int n) {
 }
 
 void ap_move_to(ap_t ap, int x, int y) {
-    append_str(&ap->buf, STR("\033["));
+    ap_str(ap, STR("\033["));
     ap_itoa(ap, y + 1); // ANSI rows are 1-based
     append_byte(&ap->buf, ';');
     ap_itoa(ap, x + 1); // ANSI columns are 1-based
@@ -155,13 +155,40 @@ void ap_move_to(ap_t ap, int x, int y) {
 
 void ap_flush(ap_t ap) {
     write_buf(ap->out, ap->buf);
-    ap->buf.size = 0;
+    clear_buf(&ap->buf);
 }
 
 void ap_save_cursor(ap_t ap) {
-    append_str(&ap->buf, STR("\0337")); // save cursor position
+    ap_str(ap, STR("\0337")); // save cursor position
 }
 
 void ap_restore_cursor(ap_t ap) {
-    append_str(&ap->buf, STR("\0338")); // restore cursor position
+    ap_str(ap, STR("\0338")); // restore cursor position
 }
+
+void ap_hide_cursor(ap_t ap) {
+    ap_str(ap, STR("\033[?25l")); // hide cursor
+}
+
+void ap_show_cursor(ap_t ap) {
+    ap_str(ap, STR("\033[?25h")); // show cursor
+}
+
+// Poll stdin without changing file status flags (which may be shared with stdout/stderr on a tty).
+bool ap_stdin_ready(ap_t _) {
+    (void)_; // mark as unused for now.
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(STDIN_FILENO, &rfds);
+    struct timeval tv = {0, 0};
+    int r = select(STDIN_FILENO + 1, &rfds, NULL, NULL, &tv);
+    if (r < 0) {
+        if (errno != EINTR) {
+            LOG_ERROR("Error polling stdin: %s", strerror(errno));
+        }
+        return false;
+    }
+    return r > 0 && FD_ISSET(STDIN_FILENO, &rfds);
+}
+
+void ap_str(ap_t ap, string s) { append_data(&ap->buf, s.data, s.size); }

@@ -20,6 +20,7 @@
 #include <string.h>
 #include <sys/errno.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
 
 typedef struct ap {
     int out;
@@ -48,3 +49,10 @@ void ap_flush(ap_t ap);
 
 void ap_save_cursor(ap_t ap);
 void ap_restore_cursor(ap_t ap);
+
+void ap_hide_cursor(ap_t ap);
+void ap_show_cursor(ap_t ap);
+
+bool ap_stdin_ready(ap_t ap);
+
+void ap_str(ap_t ap, string s);
