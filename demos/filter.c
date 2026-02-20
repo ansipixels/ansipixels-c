@@ -21,7 +21,7 @@
 enum {
 #if DEBUG
     // short on purpose for testing to trigger potential bugs with half complete sequences.
-    BUF_SIZE = 4
+    BUF_SIZE = 4 // must be at least 4 as we divide by 4.
 #else
     BUF_SIZE = 1 << 16
 #endif
@@ -47,33 +47,33 @@ typedef enum filter_mode {
 // returned position, not transferred to output), otherwise 0.
 int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
     while (true) {
-        char *esc = memchr(input->data, '\x1b', input->size);
-        size_t n = input->size;
+        char *data = input->data + input->start;
+        int size = (int)input->size;
+        char *esc = memchr(data, '\x1b', size);
         if (esc != NULL) {
-            n = esc - input->data;
+            size = esc - data;
         }
         LOG_DEBUG(
-            "Filtering %s (%zu bytes), esc at %zd",
-            debug_buf(&quoted, *input),
-            input->size,
-            esc != NULL ? esc - input->data : -1
+            "Filtering %s (%d bytes), esc at %zd", debug_buf(&quoted, *input), size, esc != NULL ? esc - data : -1
         );
         // part before first escape character, possibly all of it if no escape character found
-        transfer(output, input, n);
+        transfer(output, input, size);
+        data = input->data + input->start; // update data pointer after transfer
         if (esc == NULL) {
             // No ANSI sequences, we just copied input to output, nothing left in input.
-            LOG_DEBUG("No ANSI sequence found, transferred all %zu bytes to output", n);
+            LOG_DEBUG("No ANSI sequence found, transferred all %d bytes to output", size);
             assert(input->size == 0);
             return 0;
         }
+        size = (int)input->size; // update size after transfer
         LOG_DEBUG("Input post transfer is now %s", debug_buf(&quoted, *input));
-        if (input->size < 3) {
+        if (size < 3) {
             LOG_DEBUG("Not enough data to contain a full ANSI sequence, waiting for more data to read");
             // Not enough data to contain a full ANSI sequence, wait for more data to read.
             // if we found no (new) data and we reached EOF, it's an error, otherwise just wait for more data.
             return eof ? -1 : 0;
         }
-        int c = input->data[1]; // should be ESC, we assert it:
+        int c = data[1]; // should be ESC, we assert it:
         LOG_DEBUG("Found ANSI sequence starting with ESC %d (%c)", c, c);
         switch (c) {
         case '>':
@@ -93,10 +93,10 @@ int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
         case '[': // CSI sequence.
             LOG_DEBUG("Found CSI sequence: %s", debug_buf(&quoted, *input));
             // CSI ends at a final byte in the 0x40..0x7E range.
-            for (int i = 2; i < (int)input->size; i++) {
-                c = input->data[i];
+            for (int i = 2; i < size; i++) {
+                c = data[i];
                 if (c >= 0x40 && c <= 0x7E) {
-                    char start = input->data[2];
+                    char start = data[2];
                     LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, continuing", c, start, i);
                     if (c == 'J') {
                         return i + 1;
@@ -104,8 +104,9 @@ int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
                     // TODO: Would strncmp like of ?2026 be faster/better?
                     bool is_sync = false;
                     if (mode == FILTER_DEFAULT && c != 'n' && c != 'c' && c != 'u' &&
-                        (start != '?' || (is_sync =(i == 7 && (c == 'h' || c == 'l') && input->data[3] == '2' &&
-                                          input->data[4] == '0' && input->data[5] == '2' && input->data[6] == '6')))) {
+                        (start != '?' || (is_sync =
+                                              (i == 7 && (c == 'h' || c == 'l') && data[3] == '2' && data[4] == '0' &&
+                                               data[5] == '2' && data[6] == '6')))) {
                         // Keep non-query non status non kitty CSI in default mode (for colors/cursor moves).
                         // And do also keep \033[?2026h and \033[?2026l (avoids flickering).
                         transfer(output, input, i + 1);
@@ -124,9 +125,9 @@ int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
             return eof ? -1 : 0;
         case ']': // OSC sequence, yank it until BEL or ST (ESC \)
             LOG_DEBUG("Found OSC sequence: %s", debug_buf(&quoted, *input));
-            for (int i = 2; i < (int)input->size; i++) {
-                c = input->data[i];
-                if (c == '\a' || (c == '\\' && input->data[i - 1] == '\x1b')) {
+            for (int i = 2; i < size; i++) {
+                c = data[i];
+                if (c == '\a' || (c == '\\' && data[i - 1] == '\x1b')) {
                     LOG_DEBUG("Found end of OSC sequence at %d, continuing", i);
                     consume(input, i + 1);
                     goto next_iteration;
@@ -136,9 +137,9 @@ int filter(buffer *input, buffer *output, filter_mode mode, bool eof) {
             return eof ? -1 : 0;
         case 'P': // DCS sequence, yank until ST (ESC \)
             LOG_DEBUG("Found DCS sequence: %s", debug_buf(&quoted, *input));
-            for (int i = 2; i < (int)input->size; i++) {
-                c = input->data[i];
-                if (c == '\\' && input->data[i - 1] == '\x1b') {
+            for (int i = 2; i < size; i++) {
+                c = data[i];
+                if (c == '\\' && data[i - 1] == '\x1b') {
                     LOG_DEBUG("Found end of DCS sequence at %d, continuing", i);
                     consume(input, i + 1);
                     goto next_iteration;
@@ -242,7 +243,7 @@ int main(int argc, char **argv) {
     bool eof = false;
     do {
         // Make sure we will eventually find the end (or EOF) even with tiny test buffer size.
-        ssize_t n = read_n(ifile, &inputbuf, BUF_SIZE);
+        ssize_t n = read_n(ifile, &inputbuf, BUF_SIZE / 2);
         if (n < 0) {
             LOG_ERROR("Error reading input: %s", strerror(errno));
             return 1;
@@ -285,6 +286,7 @@ int main(int argc, char **argv) {
                 transfer(&outbuf, &inputbuf, new_frame_end_index);
             }
         }
+        compact(&inputbuf); // compact input buffer to avoid unbounded growth if we have a lot of non ANSI data.
     pause_check:
         if (pause_at_end) {
             // Check for Ctrl-C or Ctrl-D without blocking.

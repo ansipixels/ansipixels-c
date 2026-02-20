@@ -18,6 +18,7 @@ buffer new_buf(size_t size) {
     return (buffer){
         calloc(1, size),
         0,
+        0,
         size
 #if DEBUG
         ,
@@ -34,13 +35,16 @@ void free_buf(buffer *b) {
         return; // nothing to free
     }
     free(b->data);
+    b->start = 0;
     b->cap = 0;
     b->size = 0;
     b->data = NULL;
 }
 
 ssize_t read_buf(int fd, buffer *b) {
-    ssize_t n = read(fd, b->data + b->size, b->cap - b->size);
+    size_t current_end = b->start + b->size;
+    size_t available_space = b->cap - current_end;
+    ssize_t n = read(fd, b->data + current_end, available_space);
     if (n > 0) {
         b->size += n;
     }
@@ -48,17 +52,27 @@ ssize_t read_buf(int fd, buffer *b) {
 }
 
 ssize_t read_at_least(int fd, buffer *b, size_t min) {
-    ensure_cap(b, b->size + min);
+    size_t current_end = b->start + b->size;
+
+    ensure_cap(b, current_end + min);
     return read_buf(fd, b);
 }
 
 ssize_t read_n(int fd, buffer *b, size_t n) {
-    ensure_cap(b, b->size + n);
-    ssize_t r = read(fd, b->data + b->size, n);
+    size_t current_end = b->start + b->size;
+    ensure_cap(b, current_end + n);
+    ssize_t r = read(fd, b->data + current_end, n);
     if (r > 0) {
         b->size += r;
     }
     return r;
+}
+
+void compact(buffer *b) {
+    if (b->start > 0) {
+        memmove(b->data, b->data + b->start, b->size);
+        b->start = 0;
+    }
 }
 
 void consume(buffer *b, size_t n) {
@@ -69,9 +83,10 @@ void consume(buffer *b, size_t n) {
     }
 #endif
     if (n == b->size) {
-        b->size = 0; // consume all
+        b->size = 0;  // consume all
+        b->start = 0; // reset start to avoid unbounded growth
     } else {
-        memmove(b->data, b->data + n, b->size - n);
+        b->start += n;
         b->size -= n;
     }
 }
@@ -87,11 +102,11 @@ void transfer(buffer *dest, buffer *src, size_t n) {
         abort();
     }
 #endif
-    append_data(dest, src->data, n);
+    append_data(dest, src->data + src->start, n);
     consume(src, n);
 }
 
-void append_buf(buffer *dest, buffer src) { append_data(dest, src.data, src.size); }
+void append_buf(buffer *dest, buffer src) { append_data(dest, src.data + src.start, src.size); }
 
 size_t max(size_t a, size_t b) { return a > b ? a : b; }
 
@@ -124,7 +139,8 @@ buffer slice_buf(buffer b, size_t start, size_t end) {
                       // access
     }
     return (buffer){
-        b.data + start,
+        b.data + b.start + start,
+        0,
         end - start,
         0
 #if DEBUG

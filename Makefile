@@ -53,10 +53,16 @@ clean:
 update-headers:
 	./scripts/update_headers.sh
 
+
+GPERF_LIB_DIR ?= /usr/local/lib
+
+profile-demos:
+	make clean demo-binaries OPTS="-g -O2" LDFLAGS="-lprofiler -L $(GPERF_LIB_DIR)" SAN= DEBUG=0
+
 local-check:
 	./scripts/run.sh
 
 # later... add unit tests
 test:
 
-.PHONY: clean all format update-headers run-fps ci-check test local-check
+.PHONY: clean all format update-headers run-fps ci-check test local-check profile-demos

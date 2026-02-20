@@ -13,8 +13,9 @@
 
 typedef struct buf {
     char *data;
-    size_t size;
-    size_t cap;
+    size_t start; // offset from data for start of current non consumed data
+    size_t size;  // logical size of the data starting at data + start
+    size_t cap;   // total allocated capacity starting at data
 #if DEBUG
     int allocs; // for debugging reallocs
 #endif
@@ -22,6 +23,8 @@ typedef struct buf {
 
 buffer new_buf(size_t size);
 void free_buf(buffer *b);
+// Move data to start, resets start to 0 and keeps size unchanged.
+void compact(buffer *b);
 void ensure_cap(buffer *dest, size_t new_cap);
 
 ssize_t read_buf(int fd, buffer *b);
