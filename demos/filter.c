@@ -48,112 +48,117 @@ typedef enum filter_mode {
 
 // Returns true unless we reached the frames limit.
 bool filter(buffer *input, buffer *output, filter_mode mode) {
-    char *esc = memchr(input->data, '\x1b', input->size);
-    size_t n = input->size;
-    if (esc != NULL) {
-        n = esc - input->data;
-    }
-    LOG_DEBUG(
-        "Filtering %s (%zu bytes), esc at %zd",
-        debug_buf(&quoted, *input),
-        input->size,
-        esc != NULL ? esc - input->data : -1
-    );
-    transfer(output, input, n); // part before first escape character, possibly all of it if no escape character found
-    if (esc == NULL) {
-        // No ANSI sequences, we just copied input to output, nothing left in input.
-        LOG_DEBUG("No ANSI sequence found, transferred all %zu bytes to output", n);
-        assert(input->size == 0);
-        return true;
-    }
-    LOG_DEBUG("Input post transfer is now %s", debug_buf(&quoted, *input));
-    if (input->size < 3) {
-        LOG_DEBUG("Not enough data to contain an ANSI sequence, waiting for more data to read");
-        // Not enough data to contain a full ANSI sequence, wait for more data to read.
-        return true;
-    }
-    int c = input->data[1]; // should be ESC, we assert it:
-    LOG_DEBUG("Found ANSI sequence starting with ESC %d (%c)", c, c);
-    switch (c) {
-    case '>':
-    case '=': // DECPAM/DECPNM we ignore in all modes.
-        LOG_DEBUG("Found DECPAM/DECPNM sequence ESC %c", c);
-        consume(input, 2); // remove ESC and the > or = byte
-        return filter(input, output, mode);
-    case '7':
-    case '8': // DECSC/DECRC save/restore cursor position.
-        LOG_DEBUG("Found DECSC/DECRC sequence ESC %c", c);
-        if (mode == FILTER_ALL) {
-            consume(input, 2); // remove ESC and the 7/8 byte
-        } else {
-            transfer(output, input, 2);
+    while (true) {
+        char *esc = memchr(input->data, '\x1b', input->size);
+        size_t n = input->size;
+        if (esc != NULL) {
+            n = esc - input->data;
         }
-        return filter(input, output, mode);
-    case '[': // CSI sequence.
-        LOG_DEBUG("Found CSI sequence: %s", debug_buf(&quoted, *input));
-        // CSI ends at a final byte in the 0x40..0x7E range.
-        for (int i = 2; i < (int)input->size; i++) {
-            c = input->data[i];
-            if (c >= 0x40 && c <= 0x7E) {
-                if (c == 'J') {
-                    frames_count++;
-                    LOG_DEBUG("Found clear screen sequence, frames count now %d", frames_count);
-                    if (frames_limit > 0 && frames_count >= frames_limit) {
-                        LOG_DEBUG("Reached frames limit of %d, stopping processing", frames_limit);
-                        return false; // stop processing
+        LOG_DEBUG(
+            "Filtering %s (%zu bytes), esc at %zd",
+            debug_buf(&quoted, *input),
+            input->size,
+            esc != NULL ? esc - input->data : -1
+        );
+        // part before first escape character, possibly all of it if no escape character found
+        transfer(output, input, n);
+        if (esc == NULL) {
+            // No ANSI sequences, we just copied input to output, nothing left in input.
+            LOG_DEBUG("No ANSI sequence found, transferred all %zu bytes to output", n);
+            assert(input->size == 0);
+            return true;
+        }
+        LOG_DEBUG("Input post transfer is now %s", debug_buf(&quoted, *input));
+        if (input->size < 3) {
+            LOG_DEBUG("Not enough data to contain an ANSI sequence, waiting for more data to read");
+            // Not enough data to contain a full ANSI sequence, wait for more data to read.
+            return true;
+        }
+        int c = input->data[1]; // should be ESC, we assert it:
+        LOG_DEBUG("Found ANSI sequence starting with ESC %d (%c)", c, c);
+        switch (c) {
+        case '>':
+        case '=': // DECPAM/DECPNM we ignore in all modes.
+            LOG_DEBUG("Found DECPAM/DECPNM sequence ESC %c", c);
+            consume(input, 2); // remove ESC and the > or = byte
+            continue;
+        case '7':
+        case '8': // DECSC/DECRC save/restore cursor position.
+            LOG_DEBUG("Found DECSC/DECRC sequence ESC %c", c);
+            if (mode == FILTER_ALL) {
+                consume(input, 2); // remove ESC and the 7/8 byte
+            } else {
+                transfer(output, input, 2);
+            }
+            continue;
+        case '[': // CSI sequence.
+            LOG_DEBUG("Found CSI sequence: %s", debug_buf(&quoted, *input));
+            // CSI ends at a final byte in the 0x40..0x7E range.
+            for (int i = 2; i < (int)input->size; i++) {
+                c = input->data[i];
+                if (c >= 0x40 && c <= 0x7E) {
+                    if (c == 'J') {
+                        frames_count++;
+                        LOG_DEBUG("Found clear screen sequence, frames count now %d", frames_count);
+                        if (frames_limit > 0 && frames_count >= frames_limit) {
+                            LOG_DEBUG("Reached frames limit of %d, stopping processing", frames_limit);
+                            return false; // stop processing
+                        }
                     }
+                    char start = input->data[2];
+                    LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, continuing", c, start, i);
+                    if (mode == FILTER_DEFAULT && start != '?' && c != 'n' && c != 'c' && c != 'u') {
+                        // Keep non-query or status or kitty CSI in default mode (for colors/cursor moves).
+                        transfer(output, input, i + 1);
+                    } else {
+                        // Drop all CSI in all-mode and query CSI in default mode.
+                        consume(input, i + 1);
+                    }
+                    goto next_iteration;
                 }
-                char start = input->data[2];
-                LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, recursing", c, start, i);
-                if (mode == FILTER_DEFAULT && start != '?' && c != 'n' && c != 'c' && c!='u') {
-                    // Keep non-query or status or kitty CSI in default mode (for colors/cursor moves).
-                    transfer(output, input, i + 1);
-                } else {
-                    // Drop all CSI in all-mode and query CSI in default mode.
+            }
+            LOG_DEBUG("Did not find end of CSI sequence, waiting for more data to read");
+            return true;
+        case ']': // OSC sequence, yank it until BEL or ST (ESC \)
+            LOG_DEBUG("Found OSC sequence: %s", debug_buf(&quoted, *input));
+            for (int i = 2; i < (int)input->size; i++) {
+                c = input->data[i];
+                if (c == '\a' || (c == '\\' && input->data[i - 1] == '\x1b')) {
+                    LOG_DEBUG("Found end of OSC sequence at %d, continuing", i);
                     consume(input, i + 1);
+                    goto next_iteration;
                 }
-                return filter(input, output, mode);
             }
-        }
-        LOG_DEBUG("Did not find end of CSI sequence, waiting for more data to read");
-        break;
-    case ']': // OSC sequence, yank it until BEL or ST (ESC \)
-        LOG_DEBUG("Found OSC sequence: %s", debug_buf(&quoted, *input));
-        for (int i = 2; i < (int)input->size; i++) {
-            c = input->data[i];
-            if (c == '\a' || (c == '\\' && input->data[i - 1] == '\x1b')) {
-                LOG_DEBUG("Found end of OSC sequence at %d, recursing", i);
-                consume(input, i + 1);
-                return filter(input, output, mode);
+            LOG_DEBUG("Did not find end of OSC sequence, waiting for more data to read");
+            return true;
+        case 'P': // DCS sequence, yank until ST (ESC \)
+            LOG_DEBUG("Found DCS sequence: %s", debug_buf(&quoted, *input));
+            for (int i = 2; i < (int)input->size; i++) {
+                c = input->data[i];
+                if (c == '\\' && input->data[i - 1] == '\x1b') {
+                    LOG_DEBUG("Found end of DCS sequence at %d, continuing", i);
+                    consume(input, i + 1);
+                    goto next_iteration;
+                }
             }
-        }
-        LOG_DEBUG("Did not find end of OSC sequence, waiting for more data to read");
-        break;
-    case 'P': // DCS sequence, yank until ST (ESC \)
-        LOG_DEBUG("Found DCS sequence: %s", debug_buf(&quoted, *input));
-        for (int i = 2; i < (int)input->size; i++) {
-            c = input->data[i];
-            if (c == '\\' && input->data[i - 1] == '\x1b') {
-                LOG_DEBUG("Found end of DCS sequence at %d, recursing", i);
-                consume(input, i + 1);
-                return filter(input, output, mode);
-            }
-        }
-        LOG_DEBUG("Did not find end of DCS sequence, waiting for more data to read");
-        break;
+            LOG_DEBUG("Did not find end of DCS sequence, waiting for more data to read");
+            return true;
         case '(':
         case ')': // SCS sequence, we ignore it in all modes, it's followed by an extra character.
-        LOG_DEBUG("Found SCS sequence ESC %c", c);
-        consume(input, 3); // remove ESC and the ( or ) byte
-        return filter(input, output, mode);
-    default:
-        LOG_ERROR("Found other ANSI sequence starting with ESC %d %c", c, c);
-        debug_print_buf(*input);
+            LOG_DEBUG("Found SCS sequence ESC %c", c);
+            consume(input, 3); // remove ESC and the ( or ) byte
+            continue;
+        default:
+            LOG_ERROR("Found other ANSI sequence starting with ESC %d %c", c, c);
+            debug_print_buf(*input);
 #if DEBUG
-        return false;
+            return false;
 #endif
+            return true;
+        }
+    next_iteration:
+        continue;
     }
-    return true;
 }
 
 int main(int argc, char **argv) {
