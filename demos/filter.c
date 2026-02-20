@@ -21,9 +21,9 @@
 enum {
 #if DEBUG
     // short on purpose for testing to trigger potential bugs with half complete sequences.
-    BUF_SIZE = 4 // must be at least 4 as we divide by 4.
+    BUF_SIZE = 4
 #else
-    BUF_SIZE = 1 << 16
+    BUF_SIZE = 32768 // Seems fastest on macOS arm64.
 #endif
 };
 
