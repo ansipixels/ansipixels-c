@@ -177,6 +177,7 @@ void ap_show_cursor(ap_t ap) {
 
 // Poll stdin without changing file status flags (which may be shared with stdout/stderr on a tty).
 bool ap_stdin_ready(ap_t _) {
+    (void)_;  // mark as unused for now.
     fd_set rfds;
     FD_ZERO(&rfds);
     FD_SET(STDIN_FILENO, &rfds);
