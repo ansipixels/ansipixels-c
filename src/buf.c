@@ -69,8 +69,8 @@ ssize_t read_n(int fd, buffer *b, size_t n) {
 }
 
 void compact(buffer *b) {
-    if (b->start > 0) {
-        memmove(b->data, b->data + b->start, b->size);
+    if (b->start > 0 && b->size < b->start) {
+        memcpy(b->data, b->data + b->start, b->size);
         b->start = 0;
     }
 }
@@ -124,8 +124,9 @@ void ensure_cap(buffer *dest, size_t new_cap) {
 }
 
 void append_data(buffer *dest, const char *data, size_t size) {
-    ensure_cap(dest, dest->size + size);
-    memcpy(dest->data + dest->size, data, size);
+    size_t current_end = dest->start + dest->size;
+    ensure_cap(dest, current_end + size);
+    memcpy(dest->data + current_end, data, size);
     dest->size += size;
 }
 

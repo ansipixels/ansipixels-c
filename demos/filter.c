@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
     bool eof = false;
     do {
         // Make sure we will eventually find the end (or EOF) even with tiny test buffer size.
-        ssize_t n = read_n(ifile, &inputbuf, BUF_SIZE / 2);
+        ssize_t n = read_n(ifile, &inputbuf, BUF_SIZE);
         if (n < 0) {
             LOG_ERROR("Error reading input: %s", strerror(errno));
             return 1;
