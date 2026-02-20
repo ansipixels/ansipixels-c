@@ -50,6 +50,7 @@ void ap_cleanup(void) {
     if (!global_ap) {
         return; // nothing to clean up
     }
+    ap_show_cursor(global_ap);
     ap_end(global_ap);
     ap_paste_off(global_ap);
     term_restore();
@@ -164,4 +165,12 @@ void ap_save_cursor(ap_t ap) {
 
 void ap_restore_cursor(ap_t ap) {
     append_str(&ap->buf, STR("\0338")); // restore cursor position
+}
+
+void ap_hide_cursor(ap_t ap) {
+    append_str(&ap->buf, STR("\033[?25l")); // hide cursor
+}
+
+void ap_show_cursor(ap_t ap) {
+    append_str(&ap->buf, STR("\033[?25h")); // show cursor
 }

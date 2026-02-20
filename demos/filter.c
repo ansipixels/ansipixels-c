@@ -38,7 +38,7 @@ void usage(const char *prog) {
     fprintf(stderr, "  -h, --help       show this help message\n");
     fprintf(stderr, "  -n, --frames <n> stop after filtering n frames (clear screens)\n");
     fprintf(stderr, "  -a, --all        filters all ANSI sequences, leaving only the text content\n");
-    fprintf(stderr, "  -p, --pause      pause at the end\n");
+    fprintf(stderr, "  -p, --pause      pause at the end (implies raw mode for filter itself and a filename)\n");
 }
 
 typedef enum filter_mode {
@@ -107,8 +107,12 @@ bool filter(buffer *input, buffer *output, filter_mode mode) {
                     }
                     char start = input->data[2];
                     LOG_DEBUG("Found end of ANSI sequence %c, starts %c at %d, continuing", c, start, i);
-                    if (mode == FILTER_DEFAULT && start != '?' && c != 'n' && c != 'c' && c != 'u') {
+                    // TODO: Would strncmp like of ?2026 be faster/better?
+                    if (mode == FILTER_DEFAULT && c != 'n' && c != 'c' && c != 'u' &&
+                        (start != '?' || (i == 7 && (c == 'h' || c == 'l') && input->data[3] == '2' &&
+                                          input->data[4] == '0' && input->data[5] == '2' && input->data[6] == '6'))) {
                         // Keep non-query or status or kitty CSI in default mode (for colors/cursor moves).
+                        // except for \033[?2026h and \033[?2026l in default mode (avoids flickering).
                         transfer(output, input, i + 1);
                     } else {
                         // Drop all CSI in all-mode and query CSI in default mode.
@@ -194,9 +198,10 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-
     int ifile = STDIN_FILENO; // default to stdin if no file provided
     char *name = "stdin";
+    ap_t ap = NULL;
+    int stdin_flags = 0;
     if (optind < argc) {
         name = argv[optind];
         ifile = open(name, O_RDONLY);
@@ -204,6 +209,31 @@ int main(int argc, char **argv) {
             LOG_ERROR("Error opening input file '%s': %s", name, strerror(errno));
             return 1;
         }
+        if (pause_at_end) {
+            ap = ap_open();
+            if (ap == NULL) {
+                LOG_ERROR("Error opening ansipixels instance for pause at end: %s", strerror(errno));
+                return 1;
+            }
+            ap_hide_cursor(ap); // atexit will restore.
+            ap_clear_screen(ap, false);
+            ap_flush(ap);
+            // Make stdin non-blocking
+            stdin_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+            if (stdin_flags < 0) {
+                LOG_ERROR("Error getting flags for stdin: %s", strerror(errno));
+                return 1;
+            }
+            /*
+            if (fcntl(STDIN_FILENO, F_SETFL, stdin_flags | O_NONBLOCK) < 0) {
+                LOG_ERROR("Error setting stdin to non-blocking: %s", strerror(errno));
+                return 1;
+            }*/
+        }
+    } else if (pause_at_end) {
+        LOG_ERROR("%s: Pause at end flag requires input as a file, cannot be used with stdin", argv[0]);
+        usage(argv[0]);
+        return 1;
     }
     LOG_INFO(
         "Filtering ANSI sequences from '%s', buf size %d, %s mode, frames limit: %d",
@@ -238,12 +268,30 @@ int main(int argc, char **argv) {
         }
         outbuf.size = 0; // reset output buffer for reuse
         totalWritten += m;
+        if (continue_processing && pause_at_end && false) {
+            ssize_t n = read_buf(STDIN_FILENO, &outbuf); // check for input to exit early between frames
+            if (n > 0) {
+                LOG_DEBUG("Read %zd bytes: %s", n, debug_buf(&quoted, outbuf));
+                if (outbuf.data[0] == '\x03' || outbuf.data[0] == '\x04') { // Ctrl-C or Ctrl-D
+                    LOG_DEBUG("Exit input received, exiting");
+                    break;
+                }
+                outbuf.size = 0; // reset output buffer for reuse
+            }
+        }
     } while (continue_processing);
     if (ifile != STDIN_FILENO) {
         close(ifile);
     }
     if (pause_at_end) {
-        getchar();
+        ap_show_cursor(ap);
+        ap_flush(ap);
+        // restore stdin flags to blocking for the final read_buf wait for input to exit.
+        if (fcntl(STDIN_FILENO, F_SETFL, stdin_flags) < 0) {
+            LOG_ERROR("Error restoring stdin flags: %s", strerror(errno));
+            return 1;
+        }
+        read_buf(STDIN_FILENO, &outbuf); // wait for any input to exit
     }
     // always report when no frames_limit or we stopped before the limit.
     if (inputbuf.size > 0 && frames_count != frames_limit) {

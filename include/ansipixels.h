@@ -48,3 +48,6 @@ void ap_flush(ap_t ap);
 
 void ap_save_cursor(ap_t ap);
 void ap_restore_cursor(ap_t ap);
+
+void ap_hide_cursor(ap_t ap);
+void ap_show_cursor(ap_t ap);
