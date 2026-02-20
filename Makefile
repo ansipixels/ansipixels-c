@@ -57,7 +57,7 @@ update-headers:
 GPERF_LIB_DIR ?= /usr/local/lib
 
 profile-demos:
-	make clean demo-binaries OPTS="-g -O2" LDFLAGS="-lprofiler -L $(GPERF_LIB_DIR)" SAN= DEBUG=0
+	make clean demo-binaries OPTS="-g -O2" LDFLAGS="-L $(GPERF_LIB_DIR) -lprofiler" SAN= DEBUG=0
 
 local-check:
 	./scripts/run.sh
