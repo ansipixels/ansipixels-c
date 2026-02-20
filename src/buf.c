@@ -167,7 +167,7 @@ buffer debug_quote(const char *s, size_t size) {
     return b;
 }
 
-const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data, b.size); }
+const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data + b.start, b.size); }
 
 const char *debug_data(buffer *shared_buf, const char *data, size_t size) {
     shared_buf->size = 0; // reset shared buffer for reuse
@@ -210,13 +210,14 @@ void quote_buf(buffer *b, const char *s, size_t size) {
 }
 
 void debug_print_buf(buffer b) {
-    buffer quoted = debug_quote(b.data, b.size);
+    buffer quoted = debug_quote(b.data + b.start, b.size);
     fprintf(
         stderr,
-        GREEN "INF buffer { data: %p = %s, size: %zu, cap: %zu, allocs: %d/%d "
+        GREEN "INF buffer { data: %p = %s, start: %zu, size: %zu, cap: %zu, allocs: %d/%d "
               "}" END_LOG,
         (void *)b.data,
         quoted.data,
+        b.start,
         b.size,
         b.cap,
 #if DEBUG
@@ -262,4 +263,4 @@ ssize_t write_all(int fd, const char *buf, ssize_t len) {
     return total;
 }
 
-ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data, b.size); }
+ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data + b.start, b.size); }
