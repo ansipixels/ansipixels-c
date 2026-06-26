@@ -89,6 +89,7 @@ void print_cell(ap_t ap, uint8_t cell, point_ts pos, buffer center) {
     int x = 5 * pos.x;
     int y = 3 * pos.y;
     ap_move_to(ap, x, y);
+    // corners of cells are always shown, but darker gray (so a cell with no walls still shows)
     ap_str(ap, STR("\033[90m┌\033[m"));
     // bits are showing opening/carved passages - initial 0 value is all walls.
     if (cell & NORTH) {
