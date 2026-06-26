@@ -144,6 +144,35 @@ static buffer styled_arrow_center(cell_bits_e dir, string style) {
     return center;
 }
 
+typedef struct {
+    bool initialized;
+    buffer empty_center;
+    buffer exit_center;
+    buffer start_center[4];
+    buffer path_center[4];
+} render_cache_ts;
+
+static render_cache_ts g_render_cache = {0};
+
+static void init_render_cache(void) {
+    if (g_render_cache.initialized) {
+        return;
+    }
+
+    g_render_cache.empty_center = new_buf(3);
+    append_str(&g_render_cache.empty_center, STR("   "));
+
+    g_render_cache.exit_center = new_buf(3);
+    append_str(&g_render_cache.exit_center, STR(" \033[41mE\033[m "));
+
+    for (int i = 0; i < 4; i++) {
+        g_render_cache.start_center[i] = styled_arrow_center(kDirs[i], STR("\033[44m"));
+        g_render_cache.path_center[i] = styled_arrow_center(kDirs[i], STR("\033[30;42m"));
+    }
+
+    g_render_cache.initialized = true;
+}
+
 static inline cell_bits_e next_dir_at(const maze_ts *maze, point_ts pos) {
     return (cell_bits_e)((maze->map[pos.y][pos.x] >> NEXT_DIR_SHIFT) & WALL_MASK);
 }
@@ -157,28 +186,28 @@ static void mask_all_cells(maze_ts *maze, uint8_t mask) {
 }
 
 void print_maze_2D(ap_t ap, maze_ts *maze) {
-    buffer empty_center = new_buf(3);
-    append_str(&empty_center, STR("   "));
-    buffer start_center = styled_arrow_center(maze->dir, STR("\033[44m"));
-    buffer exit_center = new_buf(3);
-    append_str(&exit_center, STR(" \033[41mE\033[m "));
-    buffer path_center[4];
-    for (int i = 0; i < 4; i++) {
-        path_center[i] = styled_arrow_center(kDirs[i], STR("\033[30;42m"));
+    init_render_cache();
+
+    int start_idx = 0;
+    if (maze->dir) {
+        start_idx = __builtin_ctz((unsigned)maze->dir);
     }
+
+    buffer start_center = g_render_cache.start_center[start_idx];
+
     for (int y = 0; y < MAZE_HEIGHT; y++) {
         for (int x = 0; x < MAZE_WIDTH; x++) {
             if (x == maze->pos.x && y == maze->pos.y) {
                 print_cell(ap, maze->map[y][x], (point_ts){x, y}, start_center);
             } else if (x == maze->exit.x && y == maze->exit.y) {
-                print_cell(ap, maze->map[y][x], (point_ts){x, y}, exit_center);
+                print_cell(ap, maze->map[y][x], (point_ts){x, y}, g_render_cache.exit_center);
             } else {
-                buffer center = empty_center;
+                buffer center = g_render_cache.empty_center;
                 cell_bits_e dir = next_dir_at(maze, (point_ts){x, y});
                 if (dir) {
                     // convert back to index for bit pos.
                     int idx = __builtin_ctz((unsigned)dir);
-                    center = path_center[idx];
+                    center = g_render_cache.path_center[idx];
                 }
                 print_cell(ap, maze->map[y][x], (point_ts){x, y}, center);
             }
@@ -310,6 +339,9 @@ void carve_maze(maze_ts *maze, point_ts start, point_ts exit) {
 int main(void) {
     srand((unsigned)time(NULL));
     ap_t ap = ap_open();
+    if (!ap) {
+        return 1; // error already logged
+    }
     maze_ts maze = {0};
     // one of the corners so every direction is available
     point_ts start = {1, MAZE_HEIGHT - 2};
@@ -323,6 +355,6 @@ int main(void) {
         print_maze_2D(ap, &maze);
         ap_end(ap);
         k = getchar();
-    } while (k != 'q' && k != 3);
+    } while (k != 'q' && k != 3 && k != EOF);
     ap_move_to(ap, 0, 3 * MAZE_HEIGHT);
 }
