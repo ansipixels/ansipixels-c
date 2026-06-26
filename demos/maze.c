@@ -568,6 +568,36 @@ void carve_maze(maze_ts *maze, point_ts start, point_ts exit) {
     free(stack);
 }
 
+static inline void set_corner_start_exit(const maze_ts *maze, point_ts *start, point_ts *exit) {
+    // Keep endpoints one cell in from opposite corners for better path variety.
+    *start = (point_ts){1, maze->height - 2};
+    *exit = (point_ts){maze->width - 2, 1};
+}
+
+enum {
+    INPUT_RESIZE = 0,
+    INPUT_ERROR = -2,
+};
+
+static int read_input_event(void) {
+    char ch = 0;
+    for (;;) {
+        ssize_t n = read(STDIN_FILENO, &ch, 1);
+        if (n < 0) {
+            if (errno == EINTR) {
+                // SIGWINCH interrupted read: repaint using latest terminal size.
+                return INPUT_RESIZE;
+            }
+            dprintf(STDERR_FILENO, "Error reading input: %s\n", strerror(errno));
+            return INPUT_ERROR;
+        }
+        if (n == 0) {
+            return EOF;
+        }
+        return (unsigned char)ch;
+    }
+}
+
 int main(int argc, char *argv[]) {
     srand((unsigned)time(NULL));
     ap_t ap = ap_open();
@@ -590,9 +620,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // one of the corners so every direction is available
-    point_ts start = {1, maze.height - 2};
-    point_ts exit = {maze.width - 2, 1};
+    point_ts start = {0};
+    point_ts exit = {0};
+    set_corner_start_exit(&maze, &start, &exit);
     int k = 0;
     do {
         if (ap->resized) {
@@ -603,20 +633,8 @@ int main(int argc, char *argv[]) {
                 ap_move_to(ap, 0, 0);
                 ap_str(ap, STR("Terminal too small - resize and press any key (q to quit)."));
                 ap_end(ap);
-                char ch = 0;
-                ssize_t n;
-                for (;;) {
-                    n = read(STDIN_FILENO, &ch, 1);
-                    if (n < 0 && errno == EINTR) {
-                        // Resize should immediately re-run layout logic without needing a key.
-                        break;
-                    }
-                    if (n <= 0 || ch == 'q' || ch == 3) {
-                        k = (n <= 0) ? EOF : (unsigned char)ch;
-                    }
-                    break;
-                }
-                if (n <= 0 || ch == 'q' || ch == 3) {
+                k = read_input_event();
+                if (k == INPUT_ERROR || k == EOF || k == 'q' || k == 3) {
                     break;
                 }
                 continue;
@@ -625,8 +643,7 @@ int main(int argc, char *argv[]) {
                 dprintf(STDERR_FILENO, "Failed to resize maze map (%dx%d)\n", width, height);
                 break;
             }
-            start = (point_ts){1, maze.height - 2};
-            exit = (point_ts){maze.width - 2, 1};
+            set_corner_start_exit(&maze, &start, &exit);
         }
 
         carve_maze(&maze, start, exit);
@@ -641,28 +658,9 @@ int main(int argc, char *argv[]) {
         }
         ap_end(ap);
 
-        char ch = 0;
-        ssize_t n;
-        for (;;) {
-            n = read(STDIN_FILENO, &ch, 1);
-            if (n < 0 && errno == EINTR) {
-                // SIGWINCH interrupted read: treat as synthetic event and repaint.
-                k = 0;
-                break;
-            }
+        k = read_input_event();
+        if (k == INPUT_ERROR) {
             break;
-        }
-
-        if (n < 0) {
-            if (errno != EINTR) {
-                dprintf(STDERR_FILENO, "Error reading input: %s\n", strerror(errno));
-                break;
-            }
-        }
-        if (n == 0) {
-            k = EOF;
-        } else if (n > 0) {
-            k = (unsigned char)ch;
         }
     } while (k != 'q' && k != 3 && k != EOF);
     if (debug_mode) {
@@ -672,4 +670,5 @@ int main(int argc, char *argv[]) {
     }
 
     free(maze.map);
+    return 0;
 }
