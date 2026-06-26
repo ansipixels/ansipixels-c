@@ -76,3 +76,10 @@ local-check:
 test:
 
 .PHONY: clean all format update-headers run-fps ci-check test local-check profile-demos
+
+
+mac-leaks-check:
+	$(MAKE) clean maze OPTS="-g" SAN=""
+	leaks --atExit -- ./maze
+
+.PHONY: mac-leaks-check
