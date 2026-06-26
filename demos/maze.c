@@ -139,8 +139,8 @@ static bool ensure_maze_layout(maze_ts *maze, int width, int height) {
     return true;
 }
 
-// prints a debug/large version of a cell (one that doesn't expect 
-// walls to necessarily be symetrical, etc..)
+// prints a debug/large version of a cell (one that doesn't expect
+// walls to necessarily be symmetrical, etc.)
 void print_large_cell(ap_t ap, uint8_t cell, point_ts pos, int y_offset, buffer center) {
     int x = 5 * pos.x;
     int y = y_offset + 3 * pos.y;
@@ -575,7 +575,7 @@ static inline void set_corner_start_exit(const maze_ts *maze, point_ts *start, p
 }
 
 enum {
-    INPUT_RESIZE = 0,
+    INPUT_RESIZE = -3,
     INPUT_ERROR = -2,
 };
 
