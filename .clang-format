@@ -9,4 +9,5 @@ BinPackParameters: true
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
 AlignAfterOpenBracket: BlockIndent
+AllowShortFunctionsOnASingleLine: Empty
 ---

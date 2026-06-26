@@ -8,6 +8,7 @@
 # No warranty implied or expressly granted. Licensed under Apache 2.0 (see LICENSE).
 
 DEMO_BINS:=$(patsubst demos/%.c,%,$(wildcard demos/*.c))
+BUILD_FLAGS_FILE := .build_flags
 
 all: $(DEMO_BINS) run-fps
 
@@ -27,15 +28,24 @@ CFLAGS = $(OPTS) -I./include -Wall -Wextra -pedantic -Werror $(SAN) -DNO_COLOR=$
 
 LIB_OBJS:=src/buf.o src/str.o src/raw.o src/log.o src/timer.o src/ansipixels.o
 
-libansipixels.a: $(LIB_OBJS)
-	$(AR) rcs $@ $^
+.PHONY: ensure-build-flags
+
+ensure-build-flags:
+	@if [ -f $(BUILD_FLAGS_FILE) ] && [ "`cat $(BUILD_FLAGS_FILE)`" != "CFLAGS=$(CFLAGS)" ]; then \
+		echo "Build flags changed, cleaning stale objects/binaries"; \
+		rm -f src/*.o demos/*.o $(DEMO_BINS) libansipixels.a; \
+	fi
+	@echo "CFLAGS=$(CFLAGS)" > $(BUILD_FLAGS_FILE)
+
+libansipixels.a: ensure-build-flags $(LIB_OBJS)
+	$(AR) rcs $@ $(LIB_OBJS)
 
 demos/%.o: demos/%.c include/ansipixels.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Pattern rule: make any demo by name (e.g., 'make foo' builds demos/foo.c)
-%: demos/%.o libansipixels.a
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+%: ensure-build-flags demos/%.o libansipixels.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ demos/$@.o libansipixels.a
 
 # Keep .o files for debugging
 .PRECIOUS: demos/%.o src/%.o
@@ -48,7 +58,7 @@ run-fps: fps record
 	@cat record.log
 
 clean:
-	rm -rf src/*.o demos/*.o $(DEMO_BINS) libansipixels.a dist/*
+	rm -rf src/*.o demos/*.o $(DEMO_BINS) libansipixels.a dist/* $(BUILD_FLAGS_FILE)
 
 update-headers:
 	./scripts/update_headers.sh

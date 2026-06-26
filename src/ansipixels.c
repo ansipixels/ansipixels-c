@@ -191,4 +191,6 @@ bool ap_stdin_ready(ap_t _) {
     return r > 0 && FD_ISSET(STDIN_FILENO, &rfds);
 }
 
-void ap_str(ap_t ap, string s) { append_data(&ap->buf, s.data, s.size); }
+void ap_str(ap_t ap, string s) {
+    append_data(&ap->buf, s.data, s.size);
+}

@@ -106,9 +106,13 @@ void transfer(buffer *dest, buffer *src, size_t n) {
     consume(src, n);
 }
 
-void append_buf(buffer *dest, buffer src) { append_data(dest, src.data + src.start, src.size); }
+void append_buf(buffer *dest, buffer src) {
+    append_data(dest, src.data + src.start, src.size);
+}
 
-static inline size_t max(size_t a, size_t b) { return a > b ? a : b; }
+static inline size_t max(size_t a, size_t b) {
+    return a > b ? a : b;
+}
 
 void clear_buf(buffer *b) {
     b->start = 0;
@@ -153,9 +157,13 @@ void append_data(buffer *dest, const char *data, size_t size) {
     dest->size += size;
 }
 
-void append_str(buffer *dest, string src) { append_data(dest, src.data, src.size); }
+void append_str(buffer *dest, string src) {
+    append_data(dest, src.data, src.size);
+}
 
-void append_byte(buffer *dest, char byte) { append_data(dest, &byte, 1); }
+void append_byte(buffer *dest, char byte) {
+    append_data(dest, &byte, 1);
+}
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
     if (end > b.size) {
@@ -191,7 +199,9 @@ buffer debug_quote(const char *s, size_t size) {
     return b;
 }
 
-const char *debug_buf(buffer *shared_buf, buffer b) { return debug_data(shared_buf, b.data + b.start, b.size); }
+const char *debug_buf(buffer *shared_buf, buffer b) {
+    return debug_data(shared_buf, b.data + b.start, b.size);
+}
 
 const char *debug_data(buffer *shared_buf, const char *data, size_t size) {
     shared_buf->size = 0; // reset shared buffer for reuse
@@ -287,4 +297,6 @@ ssize_t write_all(int fd, const char *buf, ssize_t len) {
     return total;
 }
 
-ssize_t write_buf(int fd, buffer b) { return write_all(fd, b.data + b.start, b.size); }
+ssize_t write_buf(int fd, buffer b) {
+    return write_all(fd, b.data + b.start, b.size);
+}

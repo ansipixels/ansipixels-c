@@ -68,3 +68,6 @@ record
 record.log
 *.rec
 filter
+
+.build_flags
+maze
