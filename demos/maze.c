@@ -155,10 +155,24 @@ typedef struct {
 
 static render_cache_ts g_render_cache = {0};
 
+static void free_render_cache(void) {
+    if (!g_render_cache.initialized) {
+        return;
+    }
+    free_buf(&g_render_cache.empty_center);
+    free_buf(&g_render_cache.exit_center);
+    for (int i = 0; i < 4; i++) {
+        free_buf(&g_render_cache.start_center[i]);
+        free_buf(&g_render_cache.path_center[i]);
+    }
+    g_render_cache.initialized = false;
+}
+
 static void init_render_cache(void) {
     if (g_render_cache.initialized) {
         return;
     }
+    atexit(free_render_cache);
 
     g_render_cache.empty_center = new_buf(3);
     append_str(&g_render_cache.empty_center, STR("   "));
