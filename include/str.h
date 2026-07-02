@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 typedef struct str {
-    const char *data;
+    const char *const data;
     const size_t size;
 } string;
 
