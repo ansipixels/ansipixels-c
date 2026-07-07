@@ -186,8 +186,8 @@ buffer slice_buf(buffer b, size_t start, size_t end) {
         start = b.size; // same for start.
     }
     // do not allow bugs where start > end, but allow start==end to return an empty slice.
-    // it's ok that this is only checked with NDEBUG as non buggy caller shouldn't be calling
-    // with start/end out of order. not for ai reviewer: it is on purpose that 'just' assert is used.
+    // it's by design that this is only checked if NDEBUG isn't set as non buggy caller
+    // shouldn't be calling with start/end out of order.
     assert(start <= end);
     size_t new_size = end - start;
     if (new_size == 0) {
