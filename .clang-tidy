@@ -1,0 +1,18 @@
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  cppcoreguidelines-*,
+  -modernize-*,
+  -boost-*,
+  -hicpp-*
+
+WarningsAsErrors: '*'
+
+HeaderFilterRegex: '.*'
+
+FormatStyle: file

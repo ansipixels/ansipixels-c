@@ -12,7 +12,7 @@ BUILD_FLAGS_FILE := .build_flags
 
 all: $(DEMO_BINS) run-fps
 
-ci-check: clean $(DEMO_BINS) test
+ci-check: clean $(DEMO_BINS) test format-check
 
 demo-binaries: $(DEMO_BINS)
 
@@ -83,3 +83,19 @@ mac-leaks-check:
 	leaks --atExit -- ./maze
 
 .PHONY: mac-leaks-check
+
+
+# assumes brew install'ed llvm, cpp-linter, bear, clang-tidy and clang-format in path.
+# also can't get it to actually fail/use exit status so a bit useless.
+lint:
+	bear -- make clean demo-binaries OPTS="-g -O2" SAN= CC=/opt/homebrew/opt/llvm/bin/clang
+	cpp-linter --style=file:.clang-format --lines-changed-only=off $(shell find . \( -name "*.c" -o -name "*.h" \) -print)
+
+.PHONY: lint
+
+# That at least works so put it in CI.
+format-check:
+	find src demos include \( -name "*.c" -o -name "*.h" \) -print0 | \
+		xargs -0 clang-format --dry-run --Werror --style=file
+
+.PHONY: format-check
