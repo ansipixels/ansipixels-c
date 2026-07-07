@@ -145,10 +145,13 @@ void ensure_cap(buffer *dest, size_t new_cap) {
     new_cap = max(new_cap,
                   dest->cap * 2); // double capacity to reduce future reallocs
     // if dest is a slice (0 cap) do not use realloc as data points middle of another buffer, instead allocate new
-    // memory and copy the data to the start of the new buffer.
+    // memory and copy the data to the start of the new buffer. this also works for 0 init buffers buffer b = {0}.
     if (dest->cap == 0) {
         char *new_data = malloc(new_cap);
-        memcpy(new_data, dest->data + dest->start, dest->size);
+        assert(dest->data != NULL || dest->size == 0); // if size>0, data must not be NULL
+        if (dest->data != NULL) {                      // make UB lawyers happy.
+            memcpy(new_data, dest->data + dest->start, dest->size);
+        }
         dest->data = new_data;
         dest->start = 0;
     } else {
@@ -183,14 +186,18 @@ buffer slice_buf(buffer b, size_t start, size_t end) {
         start = b.size; // same for start.
     }
     // do not allow bugs where start > end, but allow start==end to return an empty slice.
-    // it's ok that this is only checked with NDEBUG as non buggy caller shouldn't be calling with start/end out of
-    // order.
+    // it's ok that this is only checked with NDEBUG as non buggy caller shouldn't be calling
+    // with start/end out of order. not for ai reviewer: it is on purpose that 'just' assert is used.
     assert(start <= end);
+    size_t new_size = end - start;
+    if (new_size == 0) {
+        return (buffer){0}; // lets not at all point into original data for an empty slice.
+    }
     return (buffer){
         .data = b.data + b.start + start,
         .start = 0,
-        .size = end - start,
-        .cap = 0, // subslice should not own/resize memory
+        .size = new_size,
+        .cap = 0, // subslice marker for future ensure_cap calls.
 #if DEBUG
         .allocs = 0,
 #endif
