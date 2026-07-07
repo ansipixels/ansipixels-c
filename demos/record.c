@@ -125,7 +125,12 @@ int main(int argc, char **argv) {
         return 1; // error already logged
     }
     // Get the terminal size from ap for the parent terminal
-    struct winsize ws = {ap->h, ap->w, ap->xpixel, ap->ypixel};
+    struct winsize ws = {
+        .ws_row = ap->h,
+        .ws_col = ap->w,
+        .ws_xpixel = ap->xpixel,
+        .ws_ypixel = ap->ypixel,
+    };
     LOG_INFO("Parent terminal size: %dx%d (%dx%d pixels)", ws.ws_col, ws.ws_row, ws.ws_xpixel, ws.ws_ypixel);
     char *program = argv[optind];
     char path[4096];

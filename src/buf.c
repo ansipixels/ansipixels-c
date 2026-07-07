@@ -16,13 +16,13 @@
 
 buffer new_buf(size_t size) {
     return (buffer){
-        calloc(1, size),
-        0,
-        0,
-        size
+        .data = calloc(1, size),
+        .start = 0,
+        .size = 0,
+        .cap = size
 #if DEBUG
         ,
-        1
+        .allocs = 1
 #endif
     };
 }
@@ -171,15 +171,14 @@ buffer slice_buf(buffer b, size_t start, size_t end) {
                       // access
     }
     return (buffer){
-        b.data + b.start + start,
-        0,
-        end - start,
-        0
+        .data = b.data + b.start + start,
+        .start = 0,
+        .size = end - start,
+        .cap = 0, // subslice should not own/resize memory
 #if DEBUG
-        ,
-        0
+        .allocs = 0,
 #endif
-    }; // 0 cap for subslice
+    };
 }
 
 char to_hex_digit(int c) {

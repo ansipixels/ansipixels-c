@@ -271,7 +271,9 @@ static void print_maze_2D_debug_at(ap_t ap, maze_ts *maze, int y_offset) {
             if (x == maze->pos.x && y == maze->pos.y) {
                 print_large_cell(ap, cell_get(maze, (point_ts){x, y}), (point_ts){x, y}, y_offset, start_center);
             } else if (x == maze->exit.x && y == maze->exit.y) {
-                print_large_cell(ap, cell_get(maze, (point_ts){x, y}), (point_ts){x, y}, y_offset, g_render_cache.exit_center);
+                print_large_cell(
+                    ap, cell_get(maze, (point_ts){x, y}), (point_ts){x, y}, y_offset, g_render_cache.exit_center
+                );
             } else {
                 buffer center = g_render_cache.empty_center;
                 cell_bits_e dir = next_dir_at(maze, (point_ts){x, y});
@@ -609,8 +611,13 @@ int main(int argc, char *argv[]) {
     int width = 0;
     int height = 0;
     if (!compute_layout(ap, debug_mode, &width, &height)) {
-        dprintf(STDERR_FILENO, "Terminal too small for maze mode (%s): %dx%d\n", debug_mode ? "-debug" : "compact", ap->w,
-                ap->h);
+        dprintf(
+            STDERR_FILENO,
+            "Terminal too small for maze mode (%s): %dx%d\n",
+            debug_mode ? "-debug" : "compact",
+            ap->w,
+            ap->h
+        );
         return 1;
     }
 
