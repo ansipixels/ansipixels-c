@@ -9,6 +9,7 @@
  */
 #include "buf.h"
 #include "log.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -143,7 +144,16 @@ void ensure_cap(buffer *dest, size_t new_cap) {
     }
     new_cap = max(new_cap,
                   dest->cap * 2); // double capacity to reduce future reallocs
-    dest->data = realloc(dest->data, new_cap);
+    // if dest is a slice (0 cap) do not use realloc as data points middle of another buffer, instead allocate new
+    // memory and copy the data to the start of the new buffer.
+    if (dest->cap == 0) {
+        char *new_data = malloc(new_cap);
+        memcpy(new_data, dest->data + dest->start, dest->size);
+        dest->data = new_data;
+        dest->start = 0;
+    } else {
+        dest->data = realloc(dest->data, new_cap);
+    }
     dest->cap = new_cap;
 #if DEBUG
     dest->allocs++;
@@ -151,8 +161,8 @@ void ensure_cap(buffer *dest, size_t new_cap) {
 }
 
 void append_data(buffer *dest, const char *data, size_t size) {
+    ensure_room(dest, size);
     size_t current_end = dest->start + dest->size;
-    ensure_cap(dest, current_end + size);
     memcpy(dest->data + current_end, data, size);
     dest->size += size;
 }
@@ -167,9 +177,15 @@ void append_byte(buffer *dest, char byte) {
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
     if (end > b.size) {
-        end = b.size; // allow slice end to be after end of buffer but clamp it to buffer size to avoid out of bounds
-                      // access
+        end = b.size; // allow slice end to be after end of buffer but clamp it to buffer size to avoid oob
     }
+    if (start > b.size) {
+        start = b.size; // same for start.
+    }
+    // do not allow bugs where start > end, but allow start==end to return an empty slice.
+    // it's ok that this is only checked with NDEBUG as non buggy caller shouldn't be calling with start/end out of
+    // order.
+    assert(start <= end);
     return (buffer){
         .data = b.data + b.start + start,
         .start = 0,
