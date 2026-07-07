@@ -9,6 +9,7 @@
  */
 #include "buf.h"
 #include "log.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,13 +17,13 @@
 
 buffer new_buf(size_t size) {
     return (buffer){
-        calloc(1, size),
-        0,
-        0,
-        size
+        .data = calloc(1, size),
+        .start = 0,
+        .size = 0,
+        .cap = size
 #if DEBUG
         ,
-        1
+        .allocs = 1
 #endif
     };
 }
@@ -143,7 +144,19 @@ void ensure_cap(buffer *dest, size_t new_cap) {
     }
     new_cap = max(new_cap,
                   dest->cap * 2); // double capacity to reduce future reallocs
-    dest->data = realloc(dest->data, new_cap);
+    // if dest is a slice (0 cap) do not use realloc as data points middle of another buffer, instead allocate new
+    // memory and copy the data to the start of the new buffer. this also works for 0 init buffers buffer b = {0}.
+    if (dest->cap == 0) {
+        char *new_data = malloc(new_cap);
+        assert(dest->data != NULL || dest->size == 0); // if size>0, data must not be NULL
+        if (dest->data != NULL) {                      // make UB lawyers happy.
+            memcpy(new_data, dest->data + dest->start, dest->size);
+        }
+        dest->data = new_data;
+        dest->start = 0;
+    } else {
+        dest->data = realloc(dest->data, new_cap);
+    }
     dest->cap = new_cap;
 #if DEBUG
     dest->allocs++;
@@ -151,8 +164,8 @@ void ensure_cap(buffer *dest, size_t new_cap) {
 }
 
 void append_data(buffer *dest, const char *data, size_t size) {
+    ensure_room(dest, size);
     size_t current_end = dest->start + dest->size;
-    ensure_cap(dest, current_end + size);
     memcpy(dest->data + current_end, data, size);
     dest->size += size;
 }
@@ -167,19 +180,28 @@ void append_byte(buffer *dest, char byte) {
 
 buffer slice_buf(buffer b, size_t start, size_t end) {
     if (end > b.size) {
-        end = b.size; // allow slice end to be after end of buffer but clamp it to buffer size to avoid out of bounds
-                      // access
+        end = b.size; // allow slice end to be after end of buffer but clamp it to buffer size to avoid oob
+    }
+    if (start > b.size) {
+        start = b.size; // same for start.
+    }
+    // do not allow bugs where start > end, but allow start==end to return an empty slice.
+    // it's by design that this is only checked if NDEBUG isn't set as non buggy caller
+    // shouldn't be calling with start/end out of order.
+    assert(start <= end);
+    size_t new_size = end - start;
+    if (new_size == 0) {
+        return (buffer){0}; // lets not at all point into original data for an empty slice.
     }
     return (buffer){
-        b.data + b.start + start,
-        0,
-        end - start,
-        0
+        .data = b.data + b.start + start,
+        .start = 0,
+        .size = new_size,
+        .cap = 0, // subslice marker for future ensure_cap calls.
 #if DEBUG
-        ,
-        0
+        .allocs = 0,
 #endif
-    }; // 0 cap for subslice
+    };
 }
 
 char to_hex_digit(int c) {
